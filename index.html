@@ -2,113 +2,136 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Maison Connectée</title>
+<title>Contrôle Maison MQTT</title>
 
-<!-- Librairie MQTT via WebSocket -->
+<style>
+  body {
+    font-family: Arial;
+    text-align: center;
+    background: #f0f0f0;
+  }
+
+  .btn {
+    padding: 20px;
+    margin: 10px;
+    width: 200px;
+    font-size: 18px;
+  }
+
+  .on {
+    background: green;
+    color: white;
+  }
+
+  .off {
+    background: red;
+    color: white;
+  }
+
+  .disconnect {
+    background: gray;
+    color: white;
+  }
+
+  #connexion {
+    font-weight: bold;
+    font-size: 20px;
+  }
+</style>
+
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
-<!-- Styles CSS -->
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  text-align: center;
-  margin: 0;
-  padding: 0;
-}
-h1 { color: #333; margin: 20px; }
-.container {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 15px;
-  margin: 20px;
-}
-.card {
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-button {
-  width: 100%;
-  height: 45px;
-  font-size: 16px;
-  margin-top: 5px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.on { background: #4CAF50; color: white; }
-.off { background: #F44336; color: white; }
-.state {
-  margin-top: 10px;
-  font-weight: bold;
-}
-</style>
-</head>
-
-<body>
-<h1>Commande des Lampes</h1>
-
-<div class="container">
-  <div class="card">
-    <h3>Lampe 1</h3>
-    <button class="on" onclick="commande(1,'ON')">ON</button>
-    <button class="off" onclick="commande(1,'OFF')">OFF</button>
-    <div class="state" id="state1">État : ?</div>
-  </div>
-
-  <div class="card">
-    <h3>Lampe 2</h3>
-    <button class="on" onclick="commande(2,'ON')">ON</button>
-    <button class="off" onclick="commande(2,'OFF')">OFF</button>
-    <div class="state" id="state2">État : ?</div>
-  </div>
-
-  <div class="card">
-    <h3>Lampe 3</h3>
-    <button class="on" onclick="commande(3,'ON')">ON</button>
-    <button class="off" onclick="commande(3,'OFF')">OFF</button>
-    <div class="state" id="state3">État : ?</div>
-  </div>
-
-  <div class="card">
-    <h3>Lampe 4</h3>
-    <button class="on" onclick="commande(4,'ON')">ON</button>
-    <button class="off" onclick="commande(4,'OFF')">OFF</button>
-    <div class="state" id="state4">État : ?</div>
-  </div>
-
-  <div class="card">
-    <h3>Lampe 5</h3>
-    <button class="on" onclick="commande(5,'ON')">ON</button>
-    <button class="off" onclick="commande(5,'OFF')">OFF</button>
-    <div class="state" id="state5">État : ?</div>
-  </div>
-</div>
-
 <script>
-// Connexion au broker MQTT (HiveMQ public)
-const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
-// Abonnement aux topics d'état
-client.on('connect', () => {
-  for(let i=1; i<=5; i++){
-    client.subscribe(`maison/lamp${i}/state`);
+let client = mqtt.connect("wss://test.mosquitto.org:8081");
+
+let etats = [false, false, false];
+
+let derniereReception = Date.now();
+
+// ---- Connexion MQTT ----
+client.on("connect", function () {
+  console.log("Connecté au broker MQTT");
+
+  client.subscribe("maison/#");
+});
+
+// ---- Réception des messages ----
+client.on("message", function (topic, message) {
+
+  derniereReception = Date.now();
+
+  let msg = message.toString();
+
+  for (let i = 1; i <= 3; i++) {
+    if (topic === "maison/lampe" + i + "/etat") {
+      etats[i-1] = (msg === "ON");
+      majBoutons();
+    }
+  }
+
+  if (topic === "maison/connexion/etat") {
+    document.getElementById("connexion").innerHTML = "CONNECTÉ";
+    document.getElementById("connexion").style.color = "green";
   }
 });
 
-// Fonction pour commander les lampes
-function commande(num, etat) {
-  client.publish(`maison/lamp${num}/cmd`, etat);
+// ---- Envoyer commande ----
+function envoyer(i) {
+  let cmd = etats[i] ? "OFF" : "ON";
+  client.publish("maison/lampe" + (i+1) + "/cmd", cmd);
 }
 
-// Réception des messages d'état
-client.on('message', (topic, message) => {
-  const num = topic.match(/\d+/)[0]; // récupère le numéro de la lampe
-  document.getElementById("state"+num).innerText = "État : " + message.toString();
-});
+// ---- Mettre à jour boutons ----
+function majBoutons() {
+  for (let i = 0; i < 3; i++) {
+    let b = document.getElementById("b" + i);
+
+    if (etats[i]) {
+      b.innerHTML = "Lampe " + (i+1) + " ON";
+      b.className = "btn on";
+    } else {
+      b.innerHTML = "Lampe " + (i+1) + " OFF";
+      b.className = "btn off";
+    }
+  }
+}
+
+// ---- Vérification périodique de connexion ----
+function verifierConnexion() {
+
+  let maintenant = Date.now();
+
+  // Si aucune donnée reçue depuis 10 secondes
+  if (maintenant - derniereReception > 10000) {
+
+    document.getElementById("connexion").innerHTML = "DÉCONNECTÉ";
+    document.getElementById("connexion").style.color = "red";
+
+    // Griser les boutons
+    for (let i = 0; i < 3; i++) {
+      let b = document.getElementById("b" + i);
+      b.className = "btn disconnect";
+    }
+  }
+}
+
+// ---- Rafraîchissement automatique ----
+setInterval(verifierConnexion, 5000);
+
 </script>
+
+</head>
+
+<body>
+
+<h2>Contrôle des Lampes MQTT</h2>
+
+<button id="b0" class="btn off" onclick="envoyer(0)">Lampe 1</button><br>
+<button id="b1" class="btn off" onclick="envoyer(1)">Lampe 2</button><br>
+<button id="b2" class="btn off" onclick="envoyer(2)">Lampe 3</button><br>
+
+<h3>Connexion ESP8266 : <span id="connexion">---</span></h3>
 
 </body>
 </html>
