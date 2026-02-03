@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Commande Lampes</title>
+
+<style>
+body{text-align:center;font-family:Arial}
+
+.row{
+display:flex;
+justify-content:center;
+margin:20px;
+}
+
+button{
+width:150px;
+height:70px;
+margin:10px;
+border:none;
+border-radius:10px;
+}
+
+.on{background:green;color:white}
+.off{background:grey;color:white}
+
+.connected{color:green;font-weight:bold}
+.disconnected{color:red;font-weight:bold}
+
+</style>
+</head>
+
+<body>
+
+<h2>Commande des Lampes</h2>
+
+Etat connexion :
+<span id="connexion" class="disconnected">DECONNECTE</span>
+
+<div class="row">
+<button id="btn1" class="off">Lampe 1</button>
+<button id="btn2" class="off">Lampe 2</button>
+<button id="btn3" class="off">Lampe 3</button>
+</div>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<script>
+
+const lampeEtat=[false,false,false];
+
+const client = mqtt.connect('wss://test.mosquitto.org:8081/mqtt');
+
+client.on('connect', function(){
+
+client.subscribe('maison/lampe1/etat');
+client.subscribe('maison/lampe2/etat');
+client.subscribe('maison/lampe3/etat');
+
+client.subscribe('maison/connexion/etat');
+
+});
+
+client.on('message', function(topic,message){
+
+let msg = message.toString();
+
+if(topic=='maison/lampe1/etat') lampeEtat[0]= msg=='ON';
+if(topic=='maison/lampe2/etat') lampeEtat[1]= msg=='ON';
+if(topic=='maison/lampe3/etat') lampeEtat[2]= msg=='ON';
+
+if(topic=='maison/connexion/etat'){
+let c=document.getElementById("connexion");
+
+c.innerText=msg;
+
+if(msg=="CONNECTE")
+c.className="connected";
+else
+c.className="disconnected";
+}
+
+for(let i=0;i<3;i++){
+
+let b=document.getElementById("btn"+(i+1));
+
+b.className=lampeEtat[i]?"on":"off";
+
+b.innerText="Lampe "+(i+1)+"\n"+(lampeEtat[i]?"ON":"OFF");
+}
+
+});
+
+for(let i=0;i<3;i++){
+
+document.getElementById("btn"+(i+1)).onclick=function(){
+
+let cmd = lampeEtat[i]?"OFF":"ON";
+
+client.publish("maison/lampe"+(i+1)+"/cmd", cmd);
+
+};
+
+}
+
+</script>
+
+</body>
+</html>
