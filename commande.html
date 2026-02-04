@@ -39,6 +39,7 @@
             display: inline-flex;
             align-items: center;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            min-width: 220px;
         }
         
         .status-indicator {
@@ -111,6 +112,10 @@
         
         .no-access .connection-status {
             color: #ffcc00;
+        }
+        
+        .connecting .connection-status {
+            color: #6c757d;
         }
         
         .internet-status {
@@ -288,10 +293,10 @@
             border-left: 1px solid #dee2e6;
         }
         
-        .connection-quality {
+        .connection-info {
             font-size: 0.8rem;
-            margin-top: 5px;
             opacity: 0.8;
+            margin-top: 2px;
         }
         
         @keyframes pulse {
@@ -305,13 +310,13 @@
             100% { transform: rotate(360deg); }
         }
         
-        .blink {
-            animation: blink 1s infinite;
-        }
-        
         @keyframes blink {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
+        }
+        
+        .connecting-animation {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
@@ -332,7 +337,7 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
         <h4>Connexion au système...</h4>
-        <p class="mt-2">Veuillez patienter</p>
+        <p class="mt-2" id="loadingMessage">Veuillez patienter</p>
     </div>
     
     <!-- Notification -->
@@ -356,14 +361,16 @@
                 Contrôle Maison Connectée
             </span>
             <div class="d-flex align-items-center gap-3">
-                <div class="connection-status-box" id="espStatus">
-                    <span class="status-indicator" style="background-color: #ffcc00;"></span>
-                    <span class="connection-status">ESP Inaccessible</span>
-                    <div class="connection-quality">Dernière connexion: <span id="lastConnection">--:--:--</span></div>
+                <div class="connection-status-box connecting" id="espStatus">
+                    <span class="status-indicator" style="background-color: #6c757d;"></span>
+                    <div>
+                        <span class="connection-status">Connexion en cours...</span>
+                        <div class="connection-info" id="espInfo">Attente du premier signal ESP</div>
+                    </div>
                 </div>
-                <div class="internet-status inactive" id="internetStatus">
+                <div class="internet-status active" id="internetStatus">
                     <i class="fas fa-wifi"></i>
-                    <span>Connexion inactive</span>
+                    <span>Connexion active</span>
                 </div>
                 <button id="logoutBtn" class="btn btn-logout btn-sm">
                     <i class="fas fa-sign-out-alt me-1"></i> Déconnexion
@@ -404,7 +411,7 @@
                             <div class="lamp-icon" id="lamp1Icon">
                                 <i class="fas fa-lightbulb"></i>
                             </div>
-                            <div id="lamp1Text">Inaccessible</div>
+                            <div id="lamp1Text">Attente ESP...</div>
                         </div>
                         <div class="mt-4">
                             <button id="lamp1On" class="btn btn-success control-btn me-2" disabled>
@@ -431,7 +438,7 @@
                             <div class="lamp-icon" id="lamp2Icon">
                                 <i class="fas fa-lightbulb"></i>
                             </div>
-                            <div id="lamp2Text">Inaccessible</div>
+                            <div id="lamp2Text">Attente ESP...</div>
                         </div>
                         <div class="mt-4">
                             <button id="lamp2On" class="btn btn-success control-btn me-2" disabled>
@@ -458,7 +465,7 @@
                             <div class="lamp-icon" id="lamp3Icon">
                                 <i class="fas fa-lightbulb"></i>
                             </div>
-                            <div id="lamp3Text">Inaccessible</div>
+                            <div id="lamp3Text">Attente ESP...</div>
                         </div>
                         <div class="mt-4">
                             <button id="lamp3On" class="btn btn-success control-btn me-2" disabled>
@@ -473,7 +480,7 @@
             </div>
         </div>
 
-        <!-- Footer simplifié -->
+        <!-- Footer -->
         <footer class="text-center">
             <p class="text-muted small">
                 <i class="fas fa-microchip me-1"></i>
@@ -485,12 +492,10 @@
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <script>
-        // Configuration avec broker.hivemq.com
+        // Configuration MQTT
         const CONFIG = {
             mqtt: {
                 broker: 'wss://broker.hivemq.com:8884/mqtt',
-                username: 'LTMok',
-                password: 'F3',
                 clientId: 'web_' + Math.random().toString(16).substr(2, 8),
                 keepalive: 30,
                 clean: true
@@ -503,43 +508,45 @@
             },
             reconnectDelay: 3000,
             maxReconnectAttempts: 10,
-            espTimeout: 5000, // 5 secondes de timeout pour détecter ESP hors tension
-            heartbeatInterval: 10000 // ESP envoie un heartbeat toutes les 10 secondes
+            espTimeout: 10000,
+            initialWaitTime: 3000,
+            commandDelay: 300
         };
 
         // Variables d'état
         let mqttClient = null;
-        let espState = 'no-access'; // 'connected', 'disconnected', 'no-access'
+        let espState = 'connecting';
         let isOnline = navigator.onLine;
-        let lampStates = { 1: 'inaccessible', 2: 'inaccessible', 3: 'inaccessible' };
+        let lampStates = { 1: 'disconnected', 2: 'disconnected', 3: 'disconnected' };
         let reconnectAttempts = 0;
         let lastCommandTime = 0;
         let lastEspMessageTime = 0;
-        let espHeartbeatInterval = null;
-        const COMMAND_DELAY = 300;
+        let connectionStartTime = 0;
+        let connectionTimeout = null;
 
-        // Vérifier l'authentification et la connexion
-        function checkAccess() {
+        // Vérifier l'authentification
+        function checkAuth() {
             const isLoggedIn = sessionStorage.getItem('isLoggedIn');
             const loginTime = sessionStorage.getItem('loginTime');
+            const username = sessionStorage.getItem('username');
+            const isAdmin = sessionStorage.getItem('isAdmin');
             
-            // Vérifier la session
-            if (!isLoggedIn || !loginTime) {
+            // Vérifier si c'est un admin (doit aller sur admin.html)
+            if (isAdmin === 'true') {
+                sessionStorage.removeItem('isAdmin');
+                window.location.href = 'index.html';
+                return false;
+            }
+            
+            if (!isLoggedIn || !loginTime || !username) {
                 redirectToLogin();
                 return false;
             }
             
-            // Vérifier l'expiration de session (2 heures)
             const sessionDuration = 2 * 60 * 60 * 1000;
             if (Date.now() - parseInt(loginTime) > sessionDuration) {
                 sessionStorage.clear();
                 redirectToLogin();
-                return false;
-            }
-            
-            // Vérifier la connexion internet
-            if (!isOnline) {
-                showConnectionOverlay();
                 return false;
             }
             
@@ -550,6 +557,7 @@
             window.location.href = 'index.html';
         }
 
+        // Fonctions d'affichage
         function showConnectionOverlay(show = true) {
             document.getElementById('connectionOverlay').style.display = show ? 'flex' : 'none';
             document.getElementById('mainContent').style.display = show ? 'none' : 'block';
@@ -565,8 +573,11 @@
             }, 3000);
         }
 
-        function showLoading(show) {
-            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        function showLoading(show, message = 'Veuillez patienter') {
+            const overlay = document.getElementById('loadingOverlay');
+            const messageEl = document.getElementById('loadingMessage');
+            messageEl.textContent = message;
+            overlay.style.display = show ? 'flex' : 'none';
         }
 
         function updateInternetStatus() {
@@ -595,33 +606,10 @@
             document.getElementById('lastUpdate').textContent = timeString;
         }
 
-        function updateLastConnectionTime() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('fr-FR', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
-            });
-            document.getElementById('lastConnection').textContent = timeString;
-        }
-
-        // Vérifier si l'ESP est hors tension
-        function checkEspConnection() {
-            if (espState === 'connected' && lastEspMessageTime > 0) {
-                const timeSinceLastMessage = Date.now() - lastEspMessageTime;
-                
-                if (timeSinceLastMessage > CONFIG.espTimeout) {
-                    // ESP est hors tension
-                    updateEspStatus('no-access');
-                    showNotification('ESP inaccessible - Aucun signal depuis ' + Math.round(timeSinceLastMessage/1000) + ' secondes', 'warning');
-                }
-            }
-        }
-
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
-            // Vérifier l'accès
-            if (!checkAccess()) return;
+            // Vérifier l'authentification
+            if (!checkAuth()) return;
             
             // Afficher le nom d'utilisateur
             const username = sessionStorage.getItem('username');
@@ -635,7 +623,6 @@
             // Configurer l'état initial
             updateInternetStatus();
             updateLastUpdateTime();
-            updateLastConnectionTime();
             
             // Configurer les boutons
             setupControlButtons();
@@ -643,7 +630,10 @@
             // Configurer le bouton de déconnexion
             document.getElementById('logoutBtn').addEventListener('click', logout);
             
-            // Connecter au MQTT
+            // Démarrer avec état "connecting"
+            updateEspStatus('connecting', 'Attente du premier signal ESP');
+            
+            // Démarrer la connexion MQTT
             connectToMqtt();
             
             // Écouter les changements de connexion
@@ -657,7 +647,6 @@
         function handleOnline() {
             isOnline = true;
             updateInternetStatus();
-            showConnectionOverlay(false);
             
             if (!mqttClient || !mqttClient.connected) {
                 connectToMqtt();
@@ -669,18 +658,13 @@
         function handleOffline() {
             isOnline = false;
             updateInternetStatus();
-            showConnectionOverlay(true);
             
             if (mqttClient && mqttClient.connected) {
                 mqttClient.end();
             }
             
-            // Mettre à jour l'état ESP
-            if (espState === 'connected') {
-                updateEspStatus('no-access');
-            }
-            
-            showNotification('Connexion internet perdue - ESP inaccessible', 'warning');
+            updateEspStatus('no-access', 'Connexion internet perdue');
+            showNotification('Connexion internet perdue', 'warning');
         }
 
         function connectToMqtt() {
@@ -689,15 +673,11 @@
                 return;
             }
             
-            showLoading(true);
+            showLoading(true, 'Connexion au broker MQTT...');
             reconnectAttempts++;
-            
-            console.log('Tentative de connexion à:', CONFIG.mqtt.broker);
             
             try {
                 mqttClient = mqtt.connect(CONFIG.mqtt.broker, {
-                    username: CONFIG.mqtt.username,
-                    password: CONFIG.mqtt.password,
                     clientId: CONFIG.mqtt.clientId,
                     keepalive: CONFIG.mqtt.keepalive,
                     clean: CONFIG.mqtt.clean,
@@ -708,6 +688,7 @@
                     console.log('Connecté au broker MQTT');
                     reconnectAttempts = 0;
                     showLoading(false);
+                    connectionStartTime = Date.now();
                     
                     // S'abonner aux topics
                     mqttClient.subscribe(CONFIG.topics.connection);
@@ -715,26 +696,31 @@
                     mqttClient.subscribe(CONFIG.topics.lamp2.state);
                     mqttClient.subscribe(CONFIG.topics.lamp3.state);
                     
-                    showNotification('Connecté au système de contrôle', 'success');
+                    showNotification('Connecté au broker MQTT', 'success');
                     
-                    // Réinitialiser le timer ESP
-                    lastEspMessageTime = Date.now();
+                    // Démarrer le timeout pour détecter absence ESP
+                    startEspTimeout();
                 });
                 
                 mqttClient.on('message', (topic, message) => {
                     const msg = message.toString();
                     console.log(`MQTT: ${topic} -> ${msg}`);
                     
-                    // Mettre à jour le temps du dernier message ESP
+                    // Mettre à jour le temps du dernier message
                     lastEspMessageTime = Date.now();
                     updateLastUpdateTime();
-                    updateLastConnectionTime();
+                    
+                    // Annuler le timeout
+                    if (connectionTimeout) {
+                        clearTimeout(connectionTimeout);
+                        connectionTimeout = null;
+                    }
                     
                     if (topic === CONFIG.topics.connection) {
                         if (msg === 'connecte') {
-                            updateEspStatus('connected');
+                            updateEspStatus('connected', 'ESP en ligne');
                         } else {
-                            updateEspStatus('disconnected');
+                            updateEspStatus('disconnected', 'ESP déconnecté du broker');
                         }
                     } else if (topic === CONFIG.topics.lamp1.state) {
                         updateLampState(1, msg);
@@ -754,7 +740,7 @@
                 
                 mqttClient.on('close', () => {
                     console.log('Déconnecté du broker');
-                    updateEspStatus('no-access');
+                    updateEspStatus('no-access', 'Déconnecté du broker');
                     showLoading(false);
                     scheduleReconnect();
                 });
@@ -764,6 +750,19 @@
                 showLoading(false);
                 scheduleReconnect();
             }
+        }
+
+        function startEspTimeout() {
+            if (connectionTimeout) {
+                clearTimeout(connectionTimeout);
+            }
+            
+            connectionTimeout = setTimeout(() => {
+                if (espState === 'connecting' && !lastEspMessageTime) {
+                    updateEspStatus('no-access', 'ESP non détecté - Vérifiez l\'alimentation');
+                    showNotification('ESP non détecté. Vérifiez que l\'ESP est alimenté et connecté au WiFi.', 'warning');
+                }
+            }, CONFIG.initialWaitTime);
         }
 
         function scheduleReconnect() {
@@ -777,26 +776,49 @@
             }
         }
 
-        function updateEspStatus(state) {
+        function checkEspConnection() {
+            if (espState === 'connected' && lastEspMessageTime > 0) {
+                const timeSinceLastMessage = Date.now() - lastEspMessageTime;
+                
+                if (timeSinceLastMessage > CONFIG.espTimeout) {
+                    updateEspStatus('no-access', 'ESP inaccessible - Aucun signal depuis ' + Math.round(timeSinceLastMessage/1000) + 's');
+                    showNotification('ESP inaccessible - Vérifiez l\'alimentation', 'warning');
+                }
+            }
+        }
+
+        function updateEspStatus(state, info = '') {
             espState = state;
             const statusBox = document.getElementById('espStatus');
             const indicator = statusBox.querySelector('.status-indicator');
             const statusText = statusBox.querySelector('.connection-status');
-            const qualityText = statusBox.querySelector('.connection-quality');
+            const infoText = document.getElementById('espInfo');
             
             // Mettre à jour les classes CSS
             statusBox.className = 'connection-status-box';
             statusBox.classList.add(state);
             
-            if (state === 'connected') {
+            if (state === 'connecting') {
+                indicator.style.backgroundColor = '#6c757d';
+                indicator.style.animation = 'pulse 1.5s infinite';
+                statusText.textContent = 'Connexion en cours...';
+                statusText.style.color = '#ffffff';
+                infoText.textContent = info || 'Attente du premier signal ESP';
+                
+                // Désactiver les boutons
+                [1, 2, 3].forEach(lamp => {
+                    document.getElementById(`lamp${lamp}On`).disabled = true;
+                    document.getElementById(`lamp${lamp}Off`).disabled = true;
+                });
+                
+            } else if (state === 'connected') {
                 indicator.style.backgroundColor = '#28a745';
                 indicator.style.animation = 'pulse 2s infinite';
                 statusText.textContent = 'ESP Connecté';
                 statusText.style.color = '#90ee90';
-                qualityText.innerHTML = 'Dernière connexion: <span id="lastConnection">' + 
-                    new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit', second: '2-digit'}) + '</span>';
+                infoText.textContent = info || 'Dernière connexion: ' + new Date().toLocaleTimeString();
                 
-                // Activer les boutons de contrôle
+                // Activer les boutons
                 [1, 2, 3].forEach(lamp => {
                     document.getElementById(`lamp${lamp}On`).disabled = false;
                     document.getElementById(`lamp${lamp}Off`).disabled = false;
@@ -807,11 +829,10 @@
                 indicator.style.animation = 'none';
                 statusText.textContent = 'ESP Déconnecté';
                 statusText.style.color = '#ff6b6b';
-                qualityText.innerHTML = 'ESP en ligne mais déconnecté du broker';
+                infoText.textContent = info || 'ESP en ligne mais déconnecté du broker';
                 
-                // Désactiver les boutons et mettre à jour l'état des lampes
+                // Désactiver les boutons
                 [1, 2, 3].forEach(lamp => {
-                    updateLampState(lamp, 'inaccessible');
                     document.getElementById(`lamp${lamp}On`).disabled = true;
                     document.getElementById(`lamp${lamp}Off`).disabled = true;
                 });
@@ -821,11 +842,10 @@
                 indicator.style.animation = 'blink 1s infinite';
                 statusText.textContent = 'ESP Inaccessible';
                 statusText.style.color = '#ffcc00';
-                qualityText.innerHTML = 'Aucun signal - Vérifiez l\'alimentation ESP';
+                infoText.textContent = info || 'Vérifiez l\'alimentation ESP';
                 
-                // Désactiver les boutons et mettre à jour l'état des lampes
+                // Désactiver les boutons
                 [1, 2, 3].forEach(lamp => {
-                    updateLampState(lamp, 'inaccessible');
                     document.getElementById(`lamp${lamp}On`).disabled = true;
                     document.getElementById(`lamp${lamp}Off`).disabled = true;
                 });
@@ -838,10 +858,8 @@
             const icon = btn.querySelector('.lamp-icon i');
             const text = document.getElementById(`lamp${lampNumber}Text`);
             
-            // Mettre à jour les classes
             btn.className = `lamp-btn ${state.toLowerCase()}`;
             
-            // Mettre à jour le contenu
             if (state === 'ON') {
                 icon.className = 'fas fa-lightbulb';
                 text.textContent = 'ALLUMÉE';
@@ -850,28 +868,22 @@
                 text.textContent = 'ÉTEINTE';
             } else {
                 icon.className = 'fas fa-lightbulb';
-                text.textContent = 'Inaccessible';
+                text.textContent = espState === 'connecting' ? 'Attente ESP...' : 'Inaccessible';
             }
         }
 
         function sendLampCommand(lampNumber, command) {
-            // Vérifier l'accès et la connexion
-            if (!checkAccess()) return;
-            
-            // Vérifier que l'ESP est connecté
             if (espState !== 'connected') {
-                showNotification('ESP non disponible pour envoyer la commande', 'warning');
+                showNotification('ESP non disponible', 'warning');
                 return;
             }
             
-            // Vérifier le délai entre les commandes
             const now = Date.now();
-            if (now - lastCommandTime < COMMAND_DELAY) {
-                showNotification('Veuillez attendre avant la commande suivante', 'info');
+            if (now - lastCommandTime < CONFIG.commandDelay) {
+                showNotification('Veuillez attendre', 'info');
                 return;
             }
             
-            // Vérifier la connexion MQTT
             if (!mqttClient || !mqttClient.connected) {
                 showNotification('Non connecté au système', 'error');
                 return;
@@ -884,13 +896,9 @@
             
             console.log(`Commande: ${topic} -> ${command}`);
             showNotification(`Lampe ${lampNumber} ${command === 'ON' ? 'allumée' : 'éteinte'}`, 'success');
-            
-            // Mettre à jour localement pour un feedback immédiat
-            updateLampState(lampNumber, command);
         }
 
         function setupControlButtons() {
-            // Configurer les boutons ON/OFF
             [1, 2, 3].forEach(lamp => {
                 const onBtn = document.getElementById(`lamp${lamp}On`);
                 const offBtn = document.getElementById(`lamp${lamp}Off`);
@@ -913,15 +921,12 @@
             }, 1000);
         }
 
-        // Mettre à jour l'heure toutes les minutes
+        // Mettre à jour l'heure
         setInterval(updateLastUpdateTime, 60000);
         
-        // Vérifier périodiquement la connexion
+        // Vérifier la connexion
         setInterval(() => {
-            if (!checkAccess()) return;
-            
             if (isOnline && (!mqttClient || !mqttClient.connected) && reconnectAttempts < CONFIG.maxReconnectAttempts) {
-                console.log('Tentative de reconnexion périodique...');
                 connectToMqtt();
             }
         }, 10000);
