@@ -1,59 +1,288 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-<title>Connexion</title>
-
-<style>
-body{text-align:center;font-family:Arial;margin-top:100px}
-input{padding:10px;margin:10px}
-button{padding:10px}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Contrôle Maison</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-card:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h2 {
+            color: #333;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .logo p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+        .form-control {
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        .connection-status {
+            font-size: 0.85rem;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .connection-status.online {
+            background-color: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+        .connection-status.offline {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-indicator.online {
+            background-color: #28a745;
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.offline {
+            background-color: #dc3545;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+    </style>
 </head>
-
 <body>
+    <!-- Overlay de chargement -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Vérification de la connexion...</p>
+    </div>
+    
+    <div class="login-card">
+        <div class="logo">
+            <h2><i class="fas fa-home me-2"></i>Maison Connectée</h2>
+            <p>Connectez-vous pour contrôler vos lampes</p>
+        </div>
+        <form id="loginForm">
+            <div class="mb-3">
+                <label for="username" class="form-label">Nom d'utilisateur</label>
+                <input type="text" class="form-control" id="username" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Mot de passe</label>
+                <input type="password" class="form-control" id="password" required>
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-login">
+                    <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+                </button>
+            </div>
+        </form>
+        
+        <!-- Indicateur de connexion internet -->
+        <div id="internetStatus" class="connection-status offline">
+            <span class="status-indicator offline"></span>
+            <span>Connexion internet inactive</span>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-danger mt-3 d-none"></div>
+    </div>
 
-<h2>Connexion Utilisateur</h2>
-
-<input id="user" placeholder="Utilisateur"><br>
-<input id="pass" type="password" placeholder="Mot de passe"><br>
-
-<button onclick="login()">Se connecter</button>
-
-<p id="msg"></p>
-
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
-<script>
-
-const client = mqtt.connect('wss://test.mosquitto.org:8081/mqtt');
-
-function login(){
-
-  let u = document.getElementById("user").value;
-  let p = document.getElementById("pass").value;
-
-  client.publish("maison/login", u+":"+p);
-}
-
-client.on('connect', function(){
-  client.subscribe("maison/login/reponse");
-});
-
-client.on('message', function(topic,message){
-
-  if(topic=="maison/login/reponse"){
-
-    if(message.toString()=="OK"){
-      window.location="commande.html";
-    } else {
-      document.getElementById("msg").innerHTML="Identifiants incorrects";
-    }
-  }
-
-});
-
-</script>
-
+    <script>
+        // Vérifier la connexion internet
+        function checkInternetConnection() {
+            return navigator.onLine;
+        }
+        
+        // Mettre à jour l'indicateur de connexion
+        function updateConnectionStatus() {
+            const statusDiv = document.getElementById('internetStatus');
+            const indicator = statusDiv.querySelector('.status-indicator');
+            const statusText = statusDiv.querySelector('span:last-child');
+            
+            if (checkInternetConnection()) {
+                statusDiv.className = 'connection-status online';
+                indicator.className = 'status-indicator online';
+                statusText.textContent = 'Connexion internet active';
+            } else {
+                statusDiv.className = 'connection-status offline';
+                indicator.className = 'status-indicator offline';
+                statusText.textContent = 'Connexion internet inactive';
+            }
+        }
+        
+        // Afficher/masquer le chargement
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+        
+        // Vérifier la session
+        const loginTime = sessionStorage.getItem('loginTime');
+        const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+        
+        if (isLoggedIn === 'true' && loginTime) {
+            const currentTime = Date.now();
+            const sessionDuration = 2 * 60 * 60 * 1000; // 2 heures
+            
+            if (currentTime - parseInt(loginTime) < sessionDuration) {
+                // Redirection vers la page de commande si connecté
+                window.location.href = 'commande.html';
+            } else {
+                sessionStorage.clear();
+            }
+        }
+        
+        // Initialiser la vérification de connexion
+        updateConnectionStatus();
+        
+        // Écouter les changements de connexion
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Gérer la soumission du formulaire
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Vérifier la connexion internet
+            if (!checkInternetConnection()) {
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.classList.remove('d-none');
+                errorDiv.textContent = 'Pas de connexion internet. Veuillez vérifier votre connexion.';
+                errorDiv.style.animation = 'none';
+                setTimeout(() => {
+                    errorDiv.style.animation = 'shake 0.5s';
+                }, 10);
+                return;
+            }
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Afficher le chargement
+            showLoading(true);
+            
+            // Simuler une vérification (délai pour l'effet)
+            setTimeout(() => {
+                if (username === 'LTMok' && password === 'F3') {
+                    // Stocker les informations de session
+                    sessionStorage.setItem('isLoggedIn', 'true');
+                    sessionStorage.setItem('loginTime', Date.now().toString());
+                    sessionStorage.setItem('username', username);
+                    
+                    // Redirection
+                    window.location.href = 'commande.html';
+                } else {
+                    showLoading(false);
+                    const errorDiv = document.getElementById('errorMessage');
+                    errorDiv.classList.remove('d-none');
+                    errorDiv.textContent = 'Identifiants incorrects';
+                    errorDiv.style.animation = 'none';
+                    setTimeout(() => {
+                        errorDiv.style.animation = 'shake 0.5s';
+                    }, 10);
+                }
+            }, 1000);
+        });
+        
+        // Focus sur le champ username au chargement
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').focus();
+        });
+    </script>
 </body>
 </html>
