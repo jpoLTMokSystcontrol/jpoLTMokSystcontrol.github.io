@@ -10,6 +10,7 @@
         :root {
             --green: #28a745;
             --red: #dc3545;
+            --orange: #fd7e14;
             --gray: #6c757d;
             --dark-gray: #343a40;
             --primary: #667eea;
@@ -46,13 +47,6 @@
             height: 10px;
             border-radius: 50%;
             margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
         }
         
         .lamp-card {
@@ -113,6 +107,10 @@
         
         .disconnected .connection-status {
             color: #ff6b6b;
+        }
+        
+        .no-access .connection-status {
+            color: #ffcc00;
         }
         
         .internet-status {
@@ -189,6 +187,10 @@
         
         .notification.error {
             background-color: var(--red);
+        }
+        
+        .notification.warning {
+            background-color: var(--orange);
         }
         
         .notification.info {
@@ -285,6 +287,32 @@
             padding-left: 15px;
             border-left: 1px solid #dee2e6;
         }
+        
+        .connection-quality {
+            font-size: 0.8rem;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
     </style>
 </head>
 <body>
@@ -329,8 +357,9 @@
             </span>
             <div class="d-flex align-items-center gap-3">
                 <div class="connection-status-box" id="espStatus">
-                    <span class="status-indicator" style="background-color: #dc3545;"></span>
-                    <span class="connection-status">ESP Déconnecté</span>
+                    <span class="status-indicator" style="background-color: #ffcc00;"></span>
+                    <span class="connection-status">ESP Inaccessible</span>
+                    <div class="connection-quality">Dernière connexion: <span id="lastConnection">--:--:--</span></div>
                 </div>
                 <div class="internet-status inactive" id="internetStatus">
                     <i class="fas fa-wifi"></i>
@@ -375,7 +404,7 @@
                             <div class="lamp-icon" id="lamp1Icon">
                                 <i class="fas fa-lightbulb"></i>
                             </div>
-                            <div id="lamp1Text">Hors ligne</div>
+                            <div id="lamp1Text">Inaccessible</div>
                         </div>
                         <div class="mt-4">
                             <button id="lamp1On" class="btn btn-success control-btn me-2" disabled>
@@ -402,7 +431,7 @@
                             <div class="lamp-icon" id="lamp2Icon">
                                 <i class="fas fa-lightbulb"></i>
                             </div>
-                            <div id="lamp2Text">Hors ligne</div>
+                            <div id="lamp2Text">Inaccessible</div>
                         </div>
                         <div class="mt-4">
                             <button id="lamp2On" class="btn btn-success control-btn me-2" disabled>
@@ -429,7 +458,7 @@
                             <div class="lamp-icon" id="lamp3Icon">
                                 <i class="fas fa-lightbulb"></i>
                             </div>
-                            <div id="lamp3Text">Hors ligne</div>
+                            <div id="lamp3Text">Inaccessible</div>
                         </div>
                         <div class="mt-4">
                             <button id="lamp3On" class="btn btn-success control-btn me-2" disabled>
@@ -473,17 +502,21 @@
                 lamp3: { state: 'maison/lampe3/etat', command: 'maison/lampe3/cmd' }
             },
             reconnectDelay: 3000,
-            maxReconnectAttempts: 10
+            maxReconnectAttempts: 10,
+            espTimeout: 5000, // 5 secondes de timeout pour détecter ESP hors tension
+            heartbeatInterval: 10000 // ESP envoie un heartbeat toutes les 10 secondes
         };
 
         // Variables d'état
         let mqttClient = null;
-        let espConnected = false;
+        let espState = 'no-access'; // 'connected', 'disconnected', 'no-access'
         let isOnline = navigator.onLine;
-        let lampStates = { 1: 'disconnected', 2: 'disconnected', 3: 'disconnected' };
+        let lampStates = { 1: 'inaccessible', 2: 'inaccessible', 3: 'inaccessible' };
         let reconnectAttempts = 0;
         let lastCommandTime = 0;
-        const COMMAND_DELAY = 300; // Délai minimum entre les commandes
+        let lastEspMessageTime = 0;
+        let espHeartbeatInterval = null;
+        const COMMAND_DELAY = 300;
 
         // Vérifier l'authentification et la connexion
         function checkAccess() {
@@ -562,6 +595,29 @@
             document.getElementById('lastUpdate').textContent = timeString;
         }
 
+        function updateLastConnectionTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fr-FR', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            document.getElementById('lastConnection').textContent = timeString;
+        }
+
+        // Vérifier si l'ESP est hors tension
+        function checkEspConnection() {
+            if (espState === 'connected' && lastEspMessageTime > 0) {
+                const timeSinceLastMessage = Date.now() - lastEspMessageTime;
+                
+                if (timeSinceLastMessage > CONFIG.espTimeout) {
+                    // ESP est hors tension
+                    updateEspStatus('no-access');
+                    showNotification('ESP inaccessible - Aucun signal depuis ' + Math.round(timeSinceLastMessage/1000) + ' secondes', 'warning');
+                }
+            }
+        }
+
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
             // Vérifier l'accès
@@ -579,6 +635,7 @@
             // Configurer l'état initial
             updateInternetStatus();
             updateLastUpdateTime();
+            updateLastConnectionTime();
             
             // Configurer les boutons
             setupControlButtons();
@@ -592,6 +649,9 @@
             // Écouter les changements de connexion
             window.addEventListener('online', handleOnline);
             window.addEventListener('offline', handleOffline);
+            
+            // Vérifier périodiquement la connexion ESP
+            setInterval(checkEspConnection, 1000);
         });
 
         function handleOnline() {
@@ -615,7 +675,12 @@
                 mqttClient.end();
             }
             
-            showNotification('Connexion internet perdue', 'error');
+            // Mettre à jour l'état ESP
+            if (espState === 'connected') {
+                updateEspStatus('no-access');
+            }
+            
+            showNotification('Connexion internet perdue - ESP inaccessible', 'warning');
         }
 
         function connectToMqtt() {
@@ -651,16 +716,26 @@
                     mqttClient.subscribe(CONFIG.topics.lamp3.state);
                     
                     showNotification('Connecté au système de contrôle', 'success');
+                    
+                    // Réinitialiser le timer ESP
+                    lastEspMessageTime = Date.now();
                 });
                 
                 mqttClient.on('message', (topic, message) => {
                     const msg = message.toString();
                     console.log(`MQTT: ${topic} -> ${msg}`);
                     
+                    // Mettre à jour le temps du dernier message ESP
+                    lastEspMessageTime = Date.now();
                     updateLastUpdateTime();
+                    updateLastConnectionTime();
                     
                     if (topic === CONFIG.topics.connection) {
-                        updateEspStatus(msg === 'connecte');
+                        if (msg === 'connecte') {
+                            updateEspStatus('connected');
+                        } else {
+                            updateEspStatus('disconnected');
+                        }
                     } else if (topic === CONFIG.topics.lamp1.state) {
                         updateLampState(1, msg);
                     } else if (topic === CONFIG.topics.lamp2.state) {
@@ -679,7 +754,7 @@
                 
                 mqttClient.on('close', () => {
                     console.log('Déconnecté du broker');
-                    updateEspStatus(false);
+                    updateEspStatus('no-access');
                     showLoading(false);
                     scheduleReconnect();
                 });
@@ -702,18 +777,24 @@
             }
         }
 
-        function updateEspStatus(connected) {
-            espConnected = connected;
+        function updateEspStatus(state) {
+            espState = state;
             const statusBox = document.getElementById('espStatus');
             const indicator = statusBox.querySelector('.status-indicator');
             const statusText = statusBox.querySelector('.connection-status');
+            const qualityText = statusBox.querySelector('.connection-quality');
             
-            if (connected) {
-                statusBox.className = 'connection-status-box connected';
+            // Mettre à jour les classes CSS
+            statusBox.className = 'connection-status-box';
+            statusBox.classList.add(state);
+            
+            if (state === 'connected') {
                 indicator.style.backgroundColor = '#28a745';
                 indicator.style.animation = 'pulse 2s infinite';
                 statusText.textContent = 'ESP Connecté';
                 statusText.style.color = '#90ee90';
+                qualityText.innerHTML = 'Dernière connexion: <span id="lastConnection">' + 
+                    new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit', second: '2-digit'}) + '</span>';
                 
                 // Activer les boutons de contrôle
                 [1, 2, 3].forEach(lamp => {
@@ -721,16 +802,30 @@
                     document.getElementById(`lamp${lamp}Off`).disabled = false;
                 });
                 
-            } else {
-                statusBox.className = 'connection-status-box disconnected';
+            } else if (state === 'disconnected') {
                 indicator.style.backgroundColor = '#dc3545';
                 indicator.style.animation = 'none';
                 statusText.textContent = 'ESP Déconnecté';
                 statusText.style.color = '#ff6b6b';
+                qualityText.innerHTML = 'ESP en ligne mais déconnecté du broker';
                 
                 // Désactiver les boutons et mettre à jour l'état des lampes
                 [1, 2, 3].forEach(lamp => {
-                    updateLampState(lamp, 'DISCONNECTED');
+                    updateLampState(lamp, 'inaccessible');
+                    document.getElementById(`lamp${lamp}On`).disabled = true;
+                    document.getElementById(`lamp${lamp}Off`).disabled = true;
+                });
+                
+            } else { // no-access
+                indicator.style.backgroundColor = '#ffcc00';
+                indicator.style.animation = 'blink 1s infinite';
+                statusText.textContent = 'ESP Inaccessible';
+                statusText.style.color = '#ffcc00';
+                qualityText.innerHTML = 'Aucun signal - Vérifiez l\'alimentation ESP';
+                
+                // Désactiver les boutons et mettre à jour l'état des lampes
+                [1, 2, 3].forEach(lamp => {
+                    updateLampState(lamp, 'inaccessible');
                     document.getElementById(`lamp${lamp}On`).disabled = true;
                     document.getElementById(`lamp${lamp}Off`).disabled = true;
                 });
@@ -755,13 +850,19 @@
                 text.textContent = 'ÉTEINTE';
             } else {
                 icon.className = 'fas fa-lightbulb';
-                text.textContent = 'Hors ligne';
+                text.textContent = 'Inaccessible';
             }
         }
 
         function sendLampCommand(lampNumber, command) {
             // Vérifier l'accès et la connexion
             if (!checkAccess()) return;
+            
+            // Vérifier que l'ESP est connecté
+            if (espState !== 'connected') {
+                showNotification('ESP non disponible pour envoyer la commande', 'warning');
+                return;
+            }
             
             // Vérifier le délai entre les commandes
             const now = Date.now();
