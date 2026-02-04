@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Maison Connectée</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --warning: #fd7e14;
+            --danger: #dc3545;
+            --success: #28a745;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--warning) 0%, #e8590c 100%);
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .admin-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            border: none;
+        }
+        
+        .btn-admin {
+            background: linear-gradient(135deg, var(--warning) 0%, #e8590c 100%);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 10px 20px;
+        }
+        
+        .btn-back {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            border: none;
+            color: white;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+            max-width: 350px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            background-color: var(--success);
+        }
+        
+        .notification.error {
+            background-color: var(--danger);
+        }
+        
+        .notification.info {
+            background-color: var(--primary);
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--warning);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .user-badge-admin {
+            background-color: var(--warning);
+            color: white;
+        }
+        
+        .user-badge-user {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .user-row {
+            transition: all 0.3s ease;
+        }
+        
+        .user-row:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .mqtt-status {
+            font-size: 0.85rem;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .mqtt-connected {
+            background-color: rgba(40, 167, 69, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+        
+        .mqtt-disconnected {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+        
+        .mqtt-waiting {
+            background-color: rgba(253, 126, 20, 0.1);
+            color: var(--warning);
+            border: 1px solid rgba(253, 126, 20, 0.3);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .current-user-highlight {
+            background-color: rgba(253, 126, 20, 0.1) !important;
+            border-left: 4px solid var(--warning);
+        }
+        
+        @media (max-width: 768px) {
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Overlay de chargement -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <h4 id="loadingTitle">Connexion au système...</h4>
+        <p class="mt-2" id="loadingMessage">Veuillez patienter</p>
+    </div>
+    
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+    
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1 d-flex align-items-center">
+                <i class="fas fa-cog me-2"></i>
+                Administration - Utilisateurs
+                <span class="badge bg-light text-dark ms-2" id="currentUserBadge"></span>
+            </span>
+            <div class="d-flex align-items-center gap-3">
+                <div class="mqtt-status mqtt-waiting" id="mqttStatus">
+                    <i class="fas fa-plug"></i>
+                    <span>Connexion en cours...</span>
+                </div>
+                <button id="backBtn" class="btn btn-back btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i> Retour
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Liste des utilisateurs -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card admin-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-users me-2"></i>
+                            Gestion des Utilisateurs (5 max)
+                        </h4>
+                        <span class="badge bg-primary" id="userCountBadge">0/5</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Note:</strong> Vous pouvez modifier toutes les lignes, y compris l'administrateur. 
+                            Cliquez sur "Enregistrer" pour sauvegarder uniquement la ligne modifiée.
+                        </div>
+                        
+                        <div id="noUsersMessage" class="alert alert-warning" style="display: none;">
+                            <i class="fas fa-users-slash me-2"></i>
+                            Aucun utilisateur chargé.
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Nom d'utilisateur</th>
+                                        <th>Mot de passe</th>
+                                        <th>Type</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <!-- Rempli dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ajout d'utilisateur -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card admin-card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-user-plus me-2"></i>Ajouter un utilisateur</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="addUserForm">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <input type="text" class="form-control" id="newUsername" 
+                                           placeholder="Nom d'utilisateur" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="password" class="form-control" id="newPassword" 
+                                           placeholder="Mot de passe" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="newUserType">
+                                        <option value="user">Utilisateur</option>
+                                        <option value="admin">Administrateur</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="submit" class="btn btn-success w-100" id="addUserBtn">
+                                        <i class="fas fa-plus me-1"></i> Ajouter
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <script>
+        // Configuration
+        const CONFIG = {
+            mqtt: {
+                broker: 'wss://broker.hivemq.com:8884/mqtt',
+                clientId: 'admin_' + Math.random().toString(16).substr(2, 8),
+                keepalive: 30,
+                clean: true
+            },
+            topics: {
+                get_users: 'maison/admin/get',
+                update_user: 'maison/admin/update',
+                response: 'maison/admin/response'
+            },
+            maxUsers: 5
+        };
+
+        // Variables globales
+        let mqttClient = null;
+        let users = [];
+        let isConnected = false;
+        let connectionTimeout = null;
+        let retryCount = 0;
+        let currentUsername = '';
+        const MAX_RETRIES = 5;
+
+        // Fonctions utilitaires
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function showLoading(show, title = 'Connexion au système...', message = 'Veuillez patienter') {
+            const overlay = document.getElementById('loadingOverlay');
+            const titleEl = document.getElementById('loadingTitle');
+            const messageEl = document.getElementById('loadingMessage');
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            overlay.style.display = show ? 'flex' : 'none';
+        }
+
+        function updateMqttStatus(connected, message = '') {
+            const statusDiv = document.getElementById('mqttStatus');
+            const icon = statusDiv.querySelector('i');
+            const text = statusDiv.querySelector('span');
+            
+            if (connected) {
+                statusDiv.className = 'mqtt-status mqtt-connected';
+                icon.className = 'fas fa-check-circle';
+                text.textContent = message || 'Connecté à l\'ESP';
+            } else {
+                statusDiv.className = 'mqtt-status mqtt-disconnected';
+                icon.className = 'fas fa-exclamation-circle';
+                text.textContent = message || 'Non connecté';
+            }
+        }
+
+        function checkAdminAuth() {
+            const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+            const isAdmin = sessionStorage.getItem('isAdmin');
+            const loginTime = sessionStorage.getItem('loginTime');
+            currentUsername = sessionStorage.getItem('username') || '';
+            
+            document.getElementById('currentUserBadge').textContent = currentUsername;
+            
+            if (!isLoggedIn || !isAdmin || isAdmin !== 'true') {
+                redirectToLogin();
+                return false;
+            }
+            
+            const sessionDuration = 2 * 60 * 60 * 1000;
+            if (Date.now() - parseInt(loginTime) > sessionDuration) {
+                sessionStorage.clear();
+                redirectToLogin();
+                return false;
+            }
+            
+            return true;
+        }
+
+        function redirectToLogin() {
+            window.location.href = 'index.html';
+        }
+
+        // Gestion MQTT
+        function connectToMqtt() {
+            if (retryCount >= MAX_RETRIES) {
+                showNotification('Connexion impossible', 'error');
+                updateMqttStatus(false, 'Échec de connexion');
+                showLoading(false);
+                return;
+            }
+            
+            showLoading(true, 'Connexion...');
+            retryCount++;
+            
+            try {
+                mqttClient = mqtt.connect(CONFIG.mqtt.broker, {
+                    clientId: CONFIG.mqtt.clientId,
+                    keepalive: CONFIG.mqtt.keepalive,
+                    clean: CONFIG.mqtt.clean,
+                    reconnectPeriod: 0
+                });
+                
+                mqttClient.on('connect', () => {
+                    isConnected = true;
+                    retryCount = 0;
+                    updateMqttStatus(true, 'Connecté');
+                    
+                    // S'abonner au topic de réponse
+                    mqttClient.subscribe(CONFIG.topics.response, { qos: 1 });
+                    
+                    // Demander les utilisateurs après 1 seconde
+                    setTimeout(() => {
+                        requestUsers();
+                    }, 1000);
+                    
+                    showLoading(false);
+                });
+                
+                mqttClient.on('message', (topic, message) => {
+                    if (topic === CONFIG.topics.response) {
+                        handleAdminResponse(message.toString());
+                    }
+                });
+                
+                mqttClient.on('error', (error) => {
+                    showLoading(false);
+                    updateMqttStatus(false, 'Erreur');
+                    scheduleReconnect();
+                });
+                
+                mqttClient.on('close', () => {
+                    isConnected = false;
+                    updateMqttStatus(false, 'Déconnecté');
+                    showLoading(false);
+                    scheduleReconnect();
+                });
+                
+            } catch (error) {
+                showLoading(false);
+                scheduleReconnect();
+            }
+        }
+
+        function scheduleReconnect() {
+            if (retryCount < MAX_RETRIES) {
+                const delay = Math.min(5000 * retryCount, 30000);
+                
+                setTimeout(() => {
+                    connectToMqtt();
+                }, delay);
+            }
+        }
+
+        function requestUsers() {
+            if (!mqttClient || !isConnected) {
+                showNotification('Non connecté', 'error');
+                return;
+            }
+            
+            showLoading(true, 'Chargement des utilisateurs...');
+            
+            // Publier la demande
+            mqttClient.publish(CONFIG.topics.get_users, 'get_users', { qos: 1 });
+            
+            // Timeout après 10 secondes
+            clearTimeout(connectionTimeout);
+            connectionTimeout = setTimeout(() => {
+                showLoading(false);
+                showNotification('Aucune réponse de l\'ESP', 'warning');
+            }, 10000);
+        }
+
+        function sendUserUpdate(index, username, password, isAdmin, action = 'update_single') {
+            if (!mqttClient || !isConnected) {
+                showNotification('Non connecté à l\'ESP', 'error');
+                return false;
+            }
+            
+            const data = {
+                index: index,
+                username: username || '',
+                password: password || '',
+                isAdmin: isAdmin,
+                action: action
+            };
+            
+            console.log('Envoi:', data);
+            mqttClient.publish(CONFIG.topics.update_user, JSON.stringify(data), { qos: 1 });
+            return true;
+        }
+
+        function handleAdminResponse(response) {
+            try {
+                const data = JSON.parse(response);
+                
+                if (data.type === 'users_list') {
+                    if (data.users && Array.isArray(data.users)) {
+                        users = new Array(CONFIG.maxUsers).fill().map(() => ({ 
+                            username: '', 
+                            password: '', 
+                            isAdmin: false 
+                        }));
+                        
+                        // Remplir avec les utilisateurs de l'ESP
+                        data.users.forEach(user => {
+                            if (user.index >= 0 && user.index < CONFIG.maxUsers) {
+                                users[user.index] = {
+                                    username: user.username || '',
+                                    password: user.password || '',
+                                    isAdmin: user.isAdmin || false
+                                };
+                            }
+                        });
+                    } else {
+                        // Initialisation par défaut
+                        users = [
+                            { username: 'LTMok', password: 'F3', isAdmin: true },
+                            { username: 'LT1', password: 'F1', isAdmin: false },
+                            { username: 'LT2', password: 'F2', isAdmin: false },
+                            { username: 'LT3', password: 'F3', isAdmin: false },
+                            { username: 'LT4', password: 'F4', isAdmin: false }
+                        ];
+                    }
+                    
+                    displayUsers(users);
+                    updateUserCount();
+                    showLoading(false);
+                    showNotification(`${users.filter(u => u.username).length} utilisateur(s) chargé(s)`, 'success');
+                    
+                } else if (data.type === 'update_result' || data.type === 'add_result' || data.type === 'delete_result') {
+                    showLoading(false);
+                    if (data.success) {
+                        const messages = {
+                            'update_result': 'Modification enregistrée',
+                            'add_result': 'Utilisateur ajouté',
+                            'delete_result': 'Utilisateur supprimé'
+                        };
+                        showNotification(messages[data.type] || 'Opération réussie', 'success');
+                        setTimeout(() => {
+                            requestUsers();
+                        }, 500);
+                    } else {
+                        showNotification(data.message || 'Erreur', 'error');
+                    }
+                }
+                
+                clearTimeout(connectionTimeout);
+                
+            } catch (e) {
+                console.error('Erreur parsing:', e);
+                showLoading(false);
+                showNotification('Format de réponse invalide', 'error');
+            }
+        }
+
+        // Gestion de l'interface
+        function displayUsers(usersList) {
+            const tbody = document.getElementById('usersTableBody');
+            const noUsersMsg = document.getElementById('noUsersMessage');
+            
+            tbody.innerHTML = '';
+            
+            if (!usersList || usersList.length === 0) {
+                noUsersMsg.style.display = 'block';
+                return;
+            }
+            
+            noUsersMsg.style.display = 'none';
+            
+            usersList.forEach((user, index) => {
+                const isCurrentUser = user.username === currentUsername;
+                const isAdminUser = user.isAdmin;
+                const canDelete = !isAdminUser || user.username !== 'LTMok';
+                
+                const row = document.createElement('tr');
+                row.className = `user-row ${isCurrentUser ? 'current-user-highlight' : ''}`;
+                row.dataset.index = index;
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm user-username" 
+                               value="${user.username || ''}" data-index="${index}"
+                               placeholder="Nom d'utilisateur">
+                    </td>
+                    <td>
+                        <input type="password" class="form-control form-control-sm user-password" 
+                               value="${user.password || ''}" data-index="${index}"
+                               placeholder="Mot de passe">
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm user-type" data-index="${index}">
+                            <option value="false" ${!isAdminUser ? 'selected' : ''}>Utilisateur</option>
+                            <option value="true" ${isAdminUser ? 'selected' : ''}>Administrateur</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-success save-user" data-index="${index}"
+                                    title="Enregistrer cette ligne">
+                                <i class="fas fa-save me-1"></i>Enregistrer
+                            </button>
+                            ${canDelete ? `
+                                <button class="btn btn-sm btn-danger delete-user" data-index="${index}"
+                                        title="Supprimer cet utilisateur">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            addUserEventListeners();
+        }
+
+        function updateUserCount() {
+            const count = users.filter(user => user.username && user.username.length > 0).length;
+            document.getElementById('userCountBadge').textContent = `${count}/${CONFIG.maxUsers}`;
+        }
+
+        function addUserEventListeners() {
+            // Boutons de sauvegarde
+            document.querySelectorAll('.save-user').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const index = parseInt(this.dataset.index);
+                    saveUser(index);
+                });
+            });
+            
+            // Boutons de suppression
+            document.querySelectorAll('.delete-user').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const index = parseInt(this.dataset.index);
+                    deleteUser(index);
+                });
+            });
+            
+            // Sauvegarde automatique sur changement
+            document.querySelectorAll('.user-username, .user-password, .user-type').forEach(input => {
+                input.addEventListener('change', function() {
+                    const row = this.closest('tr');
+                    row.style.backgroundColor = '#fff3cd';
+                });
+            });
+        }
+
+        function saveUser(index) {
+            if (index < 0 || index >= users.length) return;
+            
+            const usernameInput = document.querySelector(`.user-username[data-index="${index}"]`);
+            const passwordInput = document.querySelector(`.user-password[data-index="${index}"]`);
+            const typeSelect = document.querySelector(`.user-type[data-index="${index}"]`);
+            
+            const newUsername = usernameInput.value.trim();
+            const newPassword = passwordInput.value.trim();
+            const isAdmin = typeSelect.value === 'true';
+            
+            if (!newUsername) {
+                showNotification('Le nom d\'utilisateur est requis', 'error');
+                usernameInput.value = users[index].username;
+                return;
+            }
+            
+            if (!newPassword) {
+                showNotification('Le mot de passe est requis', 'error');
+                passwordInput.value = users[index].password;
+                return;
+            }
+            
+            // Vérifier les doublons (sauf pour l'utilisateur actuel)
+            for (let i = 0; i < users.length; i++) {
+                if (i !== index && users[i].username === newUsername) {
+                    showNotification('Ce nom d\'utilisateur est déjà utilisé', 'error');
+                    usernameInput.value = users[index].username;
+                    return;
+                }
+            }
+            
+            // Si c'est un nouvel utilisateur (emplacement vide)
+            const isNewUser = !users[index].username;
+            
+            if (sendUserUpdate(index, newUsername, newPassword, isAdmin, isNewUser ? 'add_single' : 'update_single')) {
+                showLoading(true, 'Enregistrement...', `Sauvegarde de l'utilisateur ${newUsername}`);
+                
+                // Mettre à jour localement
+                users[index].username = newUsername;
+                users[index].password = newPassword;
+                users[index].isAdmin = isAdmin;
+                
+                // Réinitialiser la couleur de la ligne
+                const row = usernameInput.closest('tr');
+                row.style.backgroundColor = '';
+            }
+        }
+
+        function deleteUser(index) {
+            if (index < 0 || index >= users.length) return;
+            
+            const user = users[index];
+            
+            if (!user.username) {
+                showNotification('Cet emplacement est déjà vide', 'info');
+                return;
+            }
+            
+            if (user.username === 'LTMok') {
+                showNotification('L\'administrateur principal ne peut être supprimé', 'error');
+                return;
+            }
+            
+            if (!confirm(`Voulez-vous vraiment supprimer l'utilisateur "${user.username}" ?`)) {
+                return;
+            }
+            
+            // Envoyer la suppression
+            if (sendUserUpdate(index, '', '', false, 'delete_single')) {
+                showLoading(true, 'Suppression...', `Suppression de ${user.username}`);
+            }
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Vérifier l'authentification
+            if (!checkAdminAuth()) return;
+            
+            // Configurer le bouton retour
+            document.getElementById('backBtn').addEventListener('click', function() {
+                sessionStorage.removeItem('isAdmin');
+                window.location.href = 'index.html';
+            });
+            
+            // Formulaire d'ajout
+            document.getElementById('addUserForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('newUsername').value.trim();
+                const password = document.getElementById('newPassword').value.trim();
+                const isAdmin = document.getElementById('newUserType').value === 'admin';
+                
+                if (!username || !password) {
+                    showNotification('Tous les champs sont requis', 'error');
+                    return;
+                }
+                
+                // Vérifier le nombre d'utilisateurs
+                const activeUsers = users.filter(u => u.username && u.username.length > 0);
+                if (activeUsers.length >= CONFIG.maxUsers) {
+                    showNotification(`Maximum ${CONFIG.maxUsers} utilisateurs atteint`, 'error');
+                    return;
+                }
+                
+                // Vérifier si l'utilisateur existe déjà
+                if (users.some(u => u.username === username)) {
+                    showNotification('Cet utilisateur existe déjà', 'error');
+                    return;
+                }
+                
+                // Trouver un index disponible
+                let newIndex = -1;
+                for (let i = 0; i < CONFIG.maxUsers; i++) {
+                    if (!users[i].username || users[i].username.length === 0) {
+                        newIndex = i;
+                        break;
+                    }
+                }
+                
+                if (newIndex === -1) {
+                    showNotification('Plus de place disponible', 'error');
+                    return;
+                }
+                
+                // Ajouter l'utilisateur
+                if (sendUserUpdate(newIndex, username, password, isAdmin, 'add_single')) {
+                    showLoading(true, 'Ajout...', `Ajout de ${username}`);
+                    
+                    // Réinitialiser le formulaire
+                    document.getElementById('addUserForm').reset();
+                }
+            });
+            
+            // Démarrer la connexion
+            setTimeout(() => {
+                connectToMqtt();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
