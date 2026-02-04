@@ -1,110 +1,829 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-<title>Commande Lampes</title>
-
-<style>
-body{text-align:center;font-family:Arial}
-
-.row{
-display:flex;
-justify-content:center;
-margin:20px;
-}
-
-button{
-width:150px;
-height:70px;
-margin:10px;
-border:none;
-border-radius:10px;
-}
-
-.on{background:green;color:white}
-.off{background:grey;color:white}
-
-.connected{color:green;font-weight:bold}
-.disconnected{color:red;font-weight:bold}
-
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contrôle des Lampes - Maison Connectée</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --green: #28a745;
+            --red: #dc3545;
+            --gray: #6c757d;
+            --dark-gray: #343a40;
+            --primary: #667eea;
+            --secondary: #764ba2;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 12px 0;
+        }
+        
+        .connection-status-box {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 8px 15px;
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .lamp-card {
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            height: 100%;
+        }
+        
+        .lamp-btn {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: none;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            cursor: default !important;
+            position: relative;
+            user-select: none;
+            pointer-events: none !important;
+        }
+        
+        .lamp-btn.on {
+            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+            color: white;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+        }
+        
+        .lamp-btn.off {
+            background: linear-gradient(135deg, #757575 0%, #424242 100%);
+            color: white;
+        }
+        
+        .lamp-btn.disconnected {
+            background: linear-gradient(135deg, #bdbdbd 0%, #757575 100%);
+            color: var(--dark-gray);
+        }
+        
+        .connection-status {
+            font-size: 1rem;
+            font-weight: 700 !important;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .connected .connection-status {
+            color: #90ee90;
+        }
+        
+        .disconnected .connection-status {
+            color: #ff6b6b;
+        }
+        
+        .internet-status {
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .internet-status.active {
+            background-color: rgba(40, 167, 69, 0.1);
+            color: var(--green);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+        
+        .internet-status.inactive {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+        
+        .control-btn {
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.2s;
+            min-width: 80px;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .lamp-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        footer {
+            margin-top: 50px;
+            padding: 20px 0;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+            max-width: 350px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            background-color: var(--green);
+        }
+        
+        .notification.error {
+            background-color: var(--red);
+        }
+        
+        .notification.info {
+            background-color: var(--primary);
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        .connection-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .connection-overlay-content {
+            max-width: 500px;
+        }
+        
+        .connection-overlay i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #ff6b6b;
+        }
+        
+        .btn-logout {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            transition: all 0.3s;
+        }
+        
+        .btn-logout:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .user-display {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100;
+        }
+        
+        .user-display i {
+            color: var(--primary);
+        }
+        
+        .last-update {
+            font-size: 0.85rem;
+            color: var(--gray);
+            margin-left: 15px;
+            padding-left: 15px;
+            border-left: 1px solid #dee2e6;
+        }
+    </style>
 </head>
-
 <body>
+    <!-- Overlay quand pas de connexion -->
+    <div class="connection-overlay" id="connectionOverlay">
+        <div class="connection-overlay-content">
+            <i class="fas fa-wifi-slash"></i>
+            <h2 class="mb-3">Connexion Internet Requise</h2>
+            <p class="mb-4">Veuillez vérifier votre connexion internet pour accéder au système de contrôle.</p>
+            <button class="btn btn-light btn-lg" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt me-2"></i>Réessayer
+            </button>
+        </div>
+    </div>
+    
+    <!-- Overlay de chargement -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <h4>Connexion au système...</h4>
+        <p class="mt-2">Veuillez patienter</p>
+    </div>
+    
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+    
+    <!-- Affichage utilisateur -->
+    <div class="user-display">
+        <i class="fas fa-user"></i>
+        <span>Utilisateur: <strong id="currentUser">--</strong></span>
+        <span class="last-update">
+            <i class="fas fa-clock me-1"></i>
+            <span id="lastUpdate">--:--:--</span>
+        </span>
+    </div>
+    
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1 d-flex align-items-center">
+                <i class="fas fa-home me-2"></i>
+                Contrôle Maison Connectée
+            </span>
+            <div class="d-flex align-items-center gap-3">
+                <div class="connection-status-box" id="espStatus">
+                    <span class="status-indicator" style="background-color: #dc3545;"></span>
+                    <span class="connection-status">ESP Déconnecté</span>
+                </div>
+                <div class="internet-status inactive" id="internetStatus">
+                    <i class="fas fa-wifi"></i>
+                    <span>Connexion inactive</span>
+                </div>
+                <button id="logoutBtn" class="btn btn-logout btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i> Déconnexion
+                </button>
+            </div>
+        </div>
+    </nav>
 
-<h2>Commande des Lampes</h2>
+    <div class="container" id="mainContent">
+        <!-- En-tête -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        Contrôle des Lampes
+                    </h2>
+                </div>
+                <p class="text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Les boutons circulaires sont des indicateurs d'état. Utilisez les boutons ON/OFF pour contrôler.
+                </p>
+            </div>
+        </div>
 
-Etat connexion maison: 
-<span id="connexion" class="disconnected">DECONNECTE</span>
+        <!-- Lampes -->
+        <div class="row g-4">
+            <!-- Lampe 1 -->
+            <div class="col-md-4">
+                <div class="card lamp-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title d-flex align-items-center justify-content-center">
+                            <i class="fas fa-couch me-2"></i>
+                            Lampe Salon
+                        </h5>
+                        <p class="card-text text-muted small mb-2">Topic: maison/lampe1</p>
+                        <div class="lamp-btn disconnected" id="lamp1Btn">
+                            <div class="lamp-icon" id="lamp1Icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <div id="lamp1Text">Hors ligne</div>
+                        </div>
+                        <div class="mt-4">
+                            <button id="lamp1On" class="btn btn-success control-btn me-2" disabled>
+                                <i class="fas fa-power-on me-1"></i> ON
+                            </button>
+                            <button id="lamp1Off" class="btn btn-danger control-btn" disabled>
+                                <i class="fas fa-power-off me-1"></i> OFF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<div class="row">
-<button id="btn1" class="off">Lampe 1</button>
-<button id="btn2" class="off">Lampe 2</button>
-<button id="btn3" class="off">Lampe 3</button>
-</div>
+            <!-- Lampe 2 -->
+            <div class="col-md-4">
+                <div class="card lamp-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title d-flex align-items-center justify-content-center">
+                            <i class="fas fa-utensils me-2"></i>
+                            Lampe Cuisine
+                        </h5>
+                        <p class="card-text text-muted small mb-2">Topic: maison/lampe2</p>
+                        <div class="lamp-btn disconnected" id="lamp2Btn">
+                            <div class="lamp-icon" id="lamp2Icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <div id="lamp2Text">Hors ligne</div>
+                        </div>
+                        <div class="mt-4">
+                            <button id="lamp2On" class="btn btn-success control-btn me-2" disabled>
+                                <i class="fas fa-power-on me-1"></i> ON
+                            </button>
+                            <button id="lamp2Off" class="btn btn-danger control-btn" disabled>
+                                <i class="fas fa-power-off me-1"></i> OFF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+            <!-- Lampe 3 -->
+            <div class="col-md-4">
+                <div class="card lamp-card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title d-flex align-items-center justify-content-center">
+                            <i class="fas fa-bed me-2"></i>
+                            Lampe Chambre
+                        </h5>
+                        <p class="card-text text-muted small mb-2">Topic: maison/lampe3</p>
+                        <div class="lamp-btn disconnected" id="lamp3Btn">
+                            <div class="lamp-icon" id="lamp3Icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <div id="lamp3Text">Hors ligne</div>
+                        </div>
+                        <div class="mt-4">
+                            <button id="lamp3On" class="btn btn-success control-btn me-2" disabled>
+                                <i class="fas fa-power-on me-1"></i> ON
+                            </button>
+                            <button id="lamp3Off" class="btn btn-danger control-btn" disabled>
+                                <i class="fas fa-power-off me-1"></i> OFF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<script>
+        <!-- Footer simplifié -->
+        <footer class="text-center">
+            <p class="text-muted small">
+                <i class="fas fa-microchip me-1"></i>
+                Système de contrôle maison - ESP8266 & MQTT
+            </p>
+        </footer>
+    </div>
 
-const lampeEtat=[false,false,false];
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <script>
+        // Configuration avec broker.hivemq.com
+        const CONFIG = {
+            mqtt: {
+                broker: 'wss://broker.hivemq.com:8884/mqtt',
+                username: 'LTMok',
+                password: 'F3',
+                clientId: 'web_' + Math.random().toString(16).substr(2, 8),
+                keepalive: 30,
+                clean: true
+            },
+            topics: {
+                connection: 'maison/connexion/etat',
+                lamp1: { state: 'maison/lampe1/etat', command: 'maison/lampe1/cmd' },
+                lamp2: { state: 'maison/lampe2/etat', command: 'maison/lampe2/cmd' },
+                lamp3: { state: 'maison/lampe3/etat', command: 'maison/lampe3/cmd' }
+            },
+            reconnectDelay: 3000,
+            maxReconnectAttempts: 10
+        };
 
-const client = mqtt.connect('wss://test.mosquitto.org:8081/mqtt');
+        // Variables d'état
+        let mqttClient = null;
+        let espConnected = false;
+        let isOnline = navigator.onLine;
+        let lampStates = { 1: 'disconnected', 2: 'disconnected', 3: 'disconnected' };
+        let reconnectAttempts = 0;
+        let lastCommandTime = 0;
+        const COMMAND_DELAY = 300; // Délai minimum entre les commandes
 
-client.on('connect', function(){
+        // Vérifier l'authentification et la connexion
+        function checkAccess() {
+            const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+            const loginTime = sessionStorage.getItem('loginTime');
+            
+            // Vérifier la session
+            if (!isLoggedIn || !loginTime) {
+                redirectToLogin();
+                return false;
+            }
+            
+            // Vérifier l'expiration de session (2 heures)
+            const sessionDuration = 2 * 60 * 60 * 1000;
+            if (Date.now() - parseInt(loginTime) > sessionDuration) {
+                sessionStorage.clear();
+                redirectToLogin();
+                return false;
+            }
+            
+            // Vérifier la connexion internet
+            if (!isOnline) {
+                showConnectionOverlay();
+                return false;
+            }
+            
+            return true;
+        }
 
-client.subscribe('maison/lampe1/etat');
-client.subscribe('maison/lampe2/etat');
-client.subscribe('maison/lampe3/etat');
+        function redirectToLogin() {
+            window.location.href = 'index.html';
+        }
 
-client.subscribe('maison/connexion/etat');
+        function showConnectionOverlay(show = true) {
+            document.getElementById('connectionOverlay').style.display = show ? 'flex' : 'none';
+            document.getElementById('mainContent').style.display = show ? 'none' : 'block';
+        }
 
-});
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
 
-client.on('message', function(topic,message){
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
 
-let msg = message.toString();
+        function updateInternetStatus() {
+            const statusDiv = document.getElementById('internetStatus');
+            const icon = statusDiv.querySelector('i');
+            const text = statusDiv.querySelector('span');
+            
+            if (isOnline) {
+                statusDiv.className = 'internet-status active';
+                icon.className = 'fas fa-wifi';
+                text.textContent = 'Connexion active';
+            } else {
+                statusDiv.className = 'internet-status inactive';
+                icon.className = 'fas fa-wifi-slash';
+                text.textContent = 'Connexion inactive';
+            }
+        }
 
-if(topic=='maison/lampe1/etat') lampeEtat[0]= msg=='ON';
-if(topic=='maison/lampe2/etat') lampeEtat[1]= msg=='ON';
-if(topic=='maison/lampe3/etat') lampeEtat[2]= msg=='ON';
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('fr-FR', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            document.getElementById('lastUpdate').textContent = timeString;
+        }
 
-if(topic=='maison/connexion/etat'){
-let c=document.getElementById("connexion");
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Vérifier l'accès
+            if (!checkAccess()) return;
+            
+            // Afficher le nom d'utilisateur
+            const username = sessionStorage.getItem('username');
+            if (username) {
+                document.getElementById('currentUser').textContent = username;
+            }
+            
+            // Masquer l'overlay de connexion
+            showConnectionOverlay(false);
+            
+            // Configurer l'état initial
+            updateInternetStatus();
+            updateLastUpdateTime();
+            
+            // Configurer les boutons
+            setupControlButtons();
+            
+            // Configurer le bouton de déconnexion
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            
+            // Connecter au MQTT
+            connectToMqtt();
+            
+            // Écouter les changements de connexion
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+        });
 
-c.innerText=msg;
+        function handleOnline() {
+            isOnline = true;
+            updateInternetStatus();
+            showConnectionOverlay(false);
+            
+            if (!mqttClient || !mqttClient.connected) {
+                connectToMqtt();
+            }
+            
+            showNotification('Connexion internet rétablie', 'success');
+        }
 
-if(msg=="CONNECTE")
-c.className="connected";
-else
-c.className="disconnected";
-}
+        function handleOffline() {
+            isOnline = false;
+            updateInternetStatus();
+            showConnectionOverlay(true);
+            
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.end();
+            }
+            
+            showNotification('Connexion internet perdue', 'error');
+        }
 
-for(let i=0;i<3;i++){
+        function connectToMqtt() {
+            if (!isOnline || reconnectAttempts >= CONFIG.maxReconnectAttempts) {
+                showNotification('Impossible de se connecter au broker', 'error');
+                return;
+            }
+            
+            showLoading(true);
+            reconnectAttempts++;
+            
+            console.log('Tentative de connexion à:', CONFIG.mqtt.broker);
+            
+            try {
+                mqttClient = mqtt.connect(CONFIG.mqtt.broker, {
+                    username: CONFIG.mqtt.username,
+                    password: CONFIG.mqtt.password,
+                    clientId: CONFIG.mqtt.clientId,
+                    keepalive: CONFIG.mqtt.keepalive,
+                    clean: CONFIG.mqtt.clean,
+                    reconnectPeriod: 0
+                });
+                
+                mqttClient.on('connect', () => {
+                    console.log('Connecté au broker MQTT');
+                    reconnectAttempts = 0;
+                    showLoading(false);
+                    
+                    // S'abonner aux topics
+                    mqttClient.subscribe(CONFIG.topics.connection);
+                    mqttClient.subscribe(CONFIG.topics.lamp1.state);
+                    mqttClient.subscribe(CONFIG.topics.lamp2.state);
+                    mqttClient.subscribe(CONFIG.topics.lamp3.state);
+                    
+                    showNotification('Connecté au système de contrôle', 'success');
+                });
+                
+                mqttClient.on('message', (topic, message) => {
+                    const msg = message.toString();
+                    console.log(`MQTT: ${topic} -> ${msg}`);
+                    
+                    updateLastUpdateTime();
+                    
+                    if (topic === CONFIG.topics.connection) {
+                        updateEspStatus(msg === 'connecte');
+                    } else if (topic === CONFIG.topics.lamp1.state) {
+                        updateLampState(1, msg);
+                    } else if (topic === CONFIG.topics.lamp2.state) {
+                        updateLampState(2, msg);
+                    } else if (topic === CONFIG.topics.lamp3.state) {
+                        updateLampState(3, msg);
+                    }
+                });
+                
+                mqttClient.on('error', (error) => {
+                    console.error('Erreur MQTT:', error);
+                    showLoading(false);
+                    showNotification('Erreur de connexion au broker', 'error');
+                    scheduleReconnect();
+                });
+                
+                mqttClient.on('close', () => {
+                    console.log('Déconnecté du broker');
+                    updateEspStatus(false);
+                    showLoading(false);
+                    scheduleReconnect();
+                });
+                
+            } catch (error) {
+                console.error('Erreur de connexion:', error);
+                showLoading(false);
+                scheduleReconnect();
+            }
+        }
 
-let b=document.getElementById("btn"+(i+1));
+        function scheduleReconnect() {
+            if (isOnline && reconnectAttempts < CONFIG.maxReconnectAttempts) {
+                console.log(`Nouvelle tentative dans ${CONFIG.reconnectDelay}ms...`);
+                setTimeout(() => {
+                    connectToMqtt();
+                }, CONFIG.reconnectDelay);
+            } else if (reconnectAttempts >= CONFIG.maxReconnectAttempts) {
+                showNotification('Trop de tentatives de connexion', 'error');
+            }
+        }
 
-b.className=lampeEtat[i]?"on":"off";
+        function updateEspStatus(connected) {
+            espConnected = connected;
+            const statusBox = document.getElementById('espStatus');
+            const indicator = statusBox.querySelector('.status-indicator');
+            const statusText = statusBox.querySelector('.connection-status');
+            
+            if (connected) {
+                statusBox.className = 'connection-status-box connected';
+                indicator.style.backgroundColor = '#28a745';
+                indicator.style.animation = 'pulse 2s infinite';
+                statusText.textContent = 'ESP Connecté';
+                statusText.style.color = '#90ee90';
+                
+                // Activer les boutons de contrôle
+                [1, 2, 3].forEach(lamp => {
+                    document.getElementById(`lamp${lamp}On`).disabled = false;
+                    document.getElementById(`lamp${lamp}Off`).disabled = false;
+                });
+                
+            } else {
+                statusBox.className = 'connection-status-box disconnected';
+                indicator.style.backgroundColor = '#dc3545';
+                indicator.style.animation = 'none';
+                statusText.textContent = 'ESP Déconnecté';
+                statusText.style.color = '#ff6b6b';
+                
+                // Désactiver les boutons et mettre à jour l'état des lampes
+                [1, 2, 3].forEach(lamp => {
+                    updateLampState(lamp, 'DISCONNECTED');
+                    document.getElementById(`lamp${lamp}On`).disabled = true;
+                    document.getElementById(`lamp${lamp}Off`).disabled = true;
+                });
+            }
+        }
 
-b.innerText="Lampe "+(i+1)+"\n"+(lampeEtat[i]?"ON":"OFF");
-}
+        function updateLampState(lampNumber, state) {
+            lampStates[lampNumber] = state.toLowerCase();
+            const btn = document.getElementById(`lamp${lampNumber}Btn`);
+            const icon = btn.querySelector('.lamp-icon i');
+            const text = document.getElementById(`lamp${lampNumber}Text`);
+            
+            // Mettre à jour les classes
+            btn.className = `lamp-btn ${state.toLowerCase()}`;
+            
+            // Mettre à jour le contenu
+            if (state === 'ON') {
+                icon.className = 'fas fa-lightbulb';
+                text.textContent = 'ALLUMÉE';
+            } else if (state === 'OFF') {
+                icon.className = 'fas fa-lightbulb';
+                text.textContent = 'ÉTEINTE';
+            } else {
+                icon.className = 'fas fa-lightbulb';
+                text.textContent = 'Hors ligne';
+            }
+        }
 
-});
+        function sendLampCommand(lampNumber, command) {
+            // Vérifier l'accès et la connexion
+            if (!checkAccess()) return;
+            
+            // Vérifier le délai entre les commandes
+            const now = Date.now();
+            if (now - lastCommandTime < COMMAND_DELAY) {
+                showNotification('Veuillez attendre avant la commande suivante', 'info');
+                return;
+            }
+            
+            // Vérifier la connexion MQTT
+            if (!mqttClient || !mqttClient.connected) {
+                showNotification('Non connecté au système', 'error');
+                return;
+            }
+            
+            lastCommandTime = now;
+            
+            const topic = CONFIG.topics[`lamp${lampNumber}`].command;
+            mqttClient.publish(topic, command, { qos: 1, retain: true });
+            
+            console.log(`Commande: ${topic} -> ${command}`);
+            showNotification(`Lampe ${lampNumber} ${command === 'ON' ? 'allumée' : 'éteinte'}`, 'success');
+            
+            // Mettre à jour localement pour un feedback immédiat
+            updateLampState(lampNumber, command);
+        }
 
-for(let i=0;i<3;i++){
+        function setupControlButtons() {
+            // Configurer les boutons ON/OFF
+            [1, 2, 3].forEach(lamp => {
+                const onBtn = document.getElementById(`lamp${lamp}On`);
+                const offBtn = document.getElementById(`lamp${lamp}Off`);
+                
+                onBtn.addEventListener('click', () => sendLampCommand(lamp, 'ON'));
+                offBtn.addEventListener('click', () => sendLampCommand(lamp, 'OFF'));
+            });
+        }
 
-document.getElementById("btn"+(i+1)).onclick=function(){
+        function logout() {
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.end();
+            }
+            
+            sessionStorage.clear();
+            showNotification('Déconnexion réussie', 'success');
+            
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1000);
+        }
 
-let cmd = lampeEtat[i]?"OFF":"ON";
-
-client.publish("maison/lampe"+(i+1)+"/cmd", cmd);
-
-};
-
-}
-
-</script>
-
+        // Mettre à jour l'heure toutes les minutes
+        setInterval(updateLastUpdateTime, 60000);
+        
+        // Vérifier périodiquement la connexion
+        setInterval(() => {
+            if (!checkAccess()) return;
+            
+            if (isOnline && (!mqttClient || !mqttClient.connected) && reconnectAttempts < CONFIG.maxReconnectAttempts) {
+                console.log('Tentative de reconnexion périodique...');
+                connectToMqtt();
+            }
+        }, 10000);
+    </script>
 </body>
 </html>
-
-
