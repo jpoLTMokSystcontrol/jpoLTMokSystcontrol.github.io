@@ -65,6 +65,7 @@
             font-weight: 600;
             border-radius: 8px;
             transition: all 0.3s ease;
+            color: white;
         }
         .btn-login:hover {
             transform: translateY(-2px);
@@ -73,44 +74,27 @@
         .btn-login:active {
             transform: translateY(0);
         }
-        .connection-status {
+        .btn-admin {
+            background: linear-gradient(135deg, #fd7e14 0%, #e8590c 100%);
+            border: none;
+            padding: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .btn-admin:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(253, 126, 20, 0.4);
+        }
+        .admin-note {
             font-size: 0.85rem;
-            padding: 8px 12px;
-            border-radius: 20px;
-            font-weight: 500;
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .connection-status.online {
-            background-color: rgba(40, 167, 69, 0.1);
-            color: #28a745;
-            border: 1px solid rgba(40, 167, 69, 0.3);
-        }
-        .connection-status.offline {
-            background-color: rgba(220, 53, 69, 0.1);
-            color: #dc3545;
-            border: 1px solid rgba(220, 53, 69, 0.3);
-        }
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .status-indicator.online {
-            background-color: #28a745;
-            animation: pulse 2s infinite;
-        }
-        .status-indicator.offline {
-            background-color: #dc3545;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            color: #666;
+            text-align: center;
+            margin-top: 15px;
+            font-style: italic;
         }
         .loading-overlay {
             position: fixed;
@@ -118,7 +102,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -144,15 +128,12 @@
             10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
             20%, 40%, 60%, 80% { transform: translateX(5px); }
         }
+        .error-message {
+            animation: shake 0.5s;
+        }
     </style>
 </head>
 <body>
-    <!-- Overlay de chargement -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <p>Vérification de la connexion...</p>
-    </div>
-    
     <div class="login-card">
         <div class="logo">
             <h2><i class="fas fa-home me-2"></i>Maison Connectée</h2>
@@ -161,11 +142,11 @@
         <form id="loginForm">
             <div class="mb-3">
                 <label for="username" class="form-label">Nom d'utilisateur</label>
-                <input type="text" class="form-control" id="username" required>
+                <input type="text" class="form-control" id="username" required autocomplete="username">
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Mot de passe</label>
-                <input type="password" class="form-control" id="password" required>
+                <input type="password" class="form-control" id="password" required autocomplete="current-password">
             </div>
             <div class="d-grid">
                 <button type="submit" class="btn btn-login">
@@ -174,114 +155,230 @@
             </div>
         </form>
         
-        <!-- Indicateur de connexion internet -->
-        <div id="internetStatus" class="connection-status offline">
-            <span class="status-indicator offline"></span>
-            <span>Connexion internet inactive</span>
-        </div>
+        <!-- Bouton Administrer -->
+        <button id="adminBtn" class="btn-admin">
+            <i class="fas fa-cog me-2"></i>Administrer
+        </button>
+        
+        <p class="admin-note">Accès réservé à l'administrateur</p>
         
         <div id="errorMessage" class="alert alert-danger mt-3 d-none"></div>
     </div>
 
+    <!-- Overlay de chargement -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <h4 id="loadingTitle">Connexion au système...</h4>
+        <p class="mt-2" id="loadingMessage">Vérification des identifiants</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <script>
-        // Vérifier la connexion internet
-        function checkInternetConnection() {
-            return navigator.onLine;
+        // Configuration MQTT
+        const MQTT_CONFIG = {
+            broker: 'wss://broker.hivemq.com:8884/mqtt',
+            authTimeout: 10000 // 10 secondes
+        };
+
+        // Variables
+        let mqttClient = null;
+        let authTimeout = null;
+
+        // Fonctions utilitaires
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.classList.remove('d-none');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('error-message');
+            void errorDiv.offsetWidth; // Trigger reflow
+            errorDiv.classList.add('error-message');
         }
-        
-        // Mettre à jour l'indicateur de connexion
-        function updateConnectionStatus() {
-            const statusDiv = document.getElementById('internetStatus');
-            const indicator = statusDiv.querySelector('.status-indicator');
-            const statusText = statusDiv.querySelector('span:last-child');
+
+        function showLoading(show, title = 'Connexion au système...', message = 'Veuillez patienter') {
+            const overlay = document.getElementById('loadingOverlay');
+            const titleEl = document.getElementById('loadingTitle');
+            const messageEl = document.getElementById('loadingMessage');
             
-            if (checkInternetConnection()) {
-                statusDiv.className = 'connection-status online';
-                indicator.className = 'status-indicator online';
-                statusText.textContent = 'Connexion internet active';
-            } else {
-                statusDiv.className = 'connection-status offline';
-                indicator.className = 'status-indicator offline';
-                statusText.textContent = 'Connexion internet inactive';
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            overlay.style.display = show ? 'flex' : 'none';
+        }
+
+        function redirectToLogin() {
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        // Vérifier si déjà connecté
+        function checkExistingSession() {
+            const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+            const loginTime = sessionStorage.getItem('loginTime');
+            const username = sessionStorage.getItem('username');
+            const isAdmin = sessionStorage.getItem('isAdmin');
+            
+            if (isLoggedIn === 'true' && loginTime && username) {
+                const sessionDuration = 2 * 60 * 60 * 1000; // 2 heures
+                
+                if (Date.now() - parseInt(loginTime) < sessionDuration) {
+                    // Rediriger selon le type d'utilisateur
+                    if (isAdmin === 'true') {
+                        window.location.href = 'admin.html';
+                    } else {
+                        window.location.href = 'commande.html';
+                    }
+                } else {
+                    sessionStorage.clear();
+                }
             }
         }
-        
-        // Afficher/masquer le chargement
-        function showLoading(show) {
-            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
-        }
-        
-        // Vérifier la session
-        const loginTime = sessionStorage.getItem('loginTime');
-        const isLoggedIn = sessionStorage.getItem('isLoggedIn');
-        
-        if (isLoggedIn === 'true' && loginTime) {
-            const currentTime = Date.now();
-            const sessionDuration = 2 * 60 * 60 * 1000; // 2 heures
+
+        // Authentification MQTT
+        function authenticateUser(username, password, isAdminAttempt = false) {
+            showLoading(true, 'Vérification des identifiants...', 'Connexion à l\'ESP...');
             
-            if (currentTime - parseInt(loginTime) < sessionDuration) {
-                // Redirection vers la page de commande si connecté
-                window.location.href = 'commande.html';
-            } else {
-                sessionStorage.clear();
-            }
+            // Créer un client MQTT temporaire
+            const clientId = 'auth_' + Math.random().toString(16).substr(2, 8);
+            mqttClient = mqtt.connect(MQTT_CONFIG.broker, {
+                clientId: clientId,
+                keepalive: 10,
+                clean: true,
+                reconnectPeriod: 0
+            });
+
+            // Topics
+            const topicAuthRequest = 'maison/auth/request';
+            const topicAuthResponse = 'maison/auth/response';
+
+            mqttClient.on('connect', () => {
+                console.log('Connecté au broker pour authentification');
+                
+                // S'abonner à la réponse
+                mqttClient.subscribe(topicAuthResponse, { qos: 1 });
+                
+                // Envoyer les identifiants
+                const authData = {
+                    username: username,
+                    password: password,
+                    timestamp: Date.now()
+                };
+                
+                mqttClient.publish(topicAuthRequest, JSON.stringify(authData), { qos: 1 });
+                console.log('Demande d\'authentification envoyée');
+                
+                // Timeout
+                authTimeout = setTimeout(() => {
+                    showLoading(false);
+                    if (mqttClient) mqttClient.end();
+                    showError('Timeout - Vérifiez que l\'ESP est allumé et connecté');
+                }, MQTT_CONFIG.authTimeout);
+            });
+
+            mqttClient.on('message', (topic, message) => {
+                if (topic === topicAuthResponse) {
+                    clearTimeout(authTimeout);
+                    
+                    try {
+                        const response = JSON.parse(message.toString());
+                        console.log('Réponse d\'authentification:', response);
+                        
+                        if (response.authenticated === true) {
+                            // Authentification réussie
+                            showLoading(false);
+                            mqttClient.end();
+                            
+                            // Stocker la session
+                            sessionStorage.setItem('isLoggedIn', 'true');
+                            sessionStorage.setItem('loginTime', Date.now().toString());
+                            sessionStorage.setItem('username', username);
+                            sessionStorage.setItem('isAdmin', response.isAdmin ? 'true' : 'false');
+                            
+                            // Gérer la redirection
+                            if (isAdminAttempt) {
+                                if (response.isAdmin === true) {
+                                    window.location.href = 'admin.html';
+                                } else {
+                                    showError('Cet utilisateur n\'est pas administrateur');
+                                }
+                            } else {
+                                if (response.isAdmin === true) {
+                                    showError('Utilisez le bouton "Administrer" pour l\'accès admin');
+                                } else {
+                                    window.location.href = 'commande.html';
+                                }
+                            }
+                            
+                        } else {
+                            // Authentification échouée
+                            showLoading(false);
+                            mqttClient.end();
+                            showError('Identifiants incorrects');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Erreur parsing réponse:', error);
+                        showLoading(false);
+                        mqttClient.end();
+                        showError('Erreur de communication avec le système');
+                    }
+                }
+            });
+
+            mqttClient.on('error', (error) => {
+                clearTimeout(authTimeout);
+                console.error('Erreur MQTT:', error);
+                showLoading(false);
+                if (mqttClient) mqttClient.end();
+                showError('Erreur de connexion au système');
+            });
+
+            mqttClient.on('close', () => {
+                clearTimeout(authTimeout);
+                showLoading(false);
+            });
         }
-        
-        // Initialiser la vérification de connexion
-        updateConnectionStatus();
-        
-        // Écouter les changements de connexion
-        window.addEventListener('online', updateConnectionStatus);
-        window.addEventListener('offline', updateConnectionStatus);
-        
-        // Gérer la soumission du formulaire
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+
+        // Gestion du formulaire
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // Vérifier la connexion internet
-            if (!checkInternetConnection()) {
-                const errorDiv = document.getElementById('errorMessage');
-                errorDiv.classList.remove('d-none');
-                errorDiv.textContent = 'Pas de connexion internet. Veuillez vérifier votre connexion.';
-                errorDiv.style.animation = 'none';
-                setTimeout(() => {
-                    errorDiv.style.animation = 'shake 0.5s';
-                }, 10);
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!username || !password) {
+                showError('Veuillez remplir tous les champs');
                 return;
             }
             
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            // Afficher le chargement
-            showLoading(true);
-            
-            // Simuler une vérification (délai pour l'effet)
-            setTimeout(() => {
-                if (username === 'LTMok' && password === 'F3') {
-                    // Stocker les informations de session
-                    sessionStorage.setItem('isLoggedIn', 'true');
-                    sessionStorage.setItem('loginTime', Date.now().toString());
-                    sessionStorage.setItem('username', username);
-                    
-                    // Redirection
-                    window.location.href = 'commande.html';
-                } else {
-                    showLoading(false);
-                    const errorDiv = document.getElementById('errorMessage');
-                    errorDiv.classList.remove('d-none');
-                    errorDiv.textContent = 'Identifiants incorrects';
-                    errorDiv.style.animation = 'none';
-                    setTimeout(() => {
-                        errorDiv.style.animation = 'shake 0.5s';
-                    }, 10);
-                }
-            }, 1000);
+            authenticateUser(username, password, false);
         });
-        
-        // Focus sur le champ username au chargement
+
+        // Bouton Administrer
+        document.getElementById('adminBtn').addEventListener('click', function() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!username || !password) {
+                showError('Veuillez entrer vos identifiants');
+                return;
+            }
+            
+            authenticateUser(username, password, true);
+        });
+
+        // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
+            checkExistingSession();
             document.getElementById('username').focus();
+        });
+
+        // Nettoyage en quittant la page
+        window.addEventListener('beforeunload', function() {
+            if (mqttClient) {
+                mqttClient.end();
+            }
+            if (authTimeout) {
+                clearTimeout(authTimeout);
+            }
         });
     </script>
 </body>
