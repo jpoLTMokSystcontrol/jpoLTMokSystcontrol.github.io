@@ -3,171 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôle des Lampes - Maison Connectée</title>
+    <title>Contrôle - Maison Connectée</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --green: #28a745;
-            --red: #dc3545;
-            --orange: #fd7e14;
-            --gray: #6c757d;
-            --dark-gray: #343a40;
-            --primary: #667eea;
-            --secondary: #764ba2;
-        }
-        
         body {
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
         }
-        
         .navbar {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            margin-bottom: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 12px 0;
-        }
-        
-        .connection-status-box {
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 8px 15px;
+            backdrop-filter: blur(10px);
+            padding: 15px 0;
+            margin-bottom: 30px;
+        }
+        .navbar-brand {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .connection-status-box {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 10px 20px;
             display: inline-flex;
             align-items: center;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            min-width: 220px;
+            color: white;
         }
-        
         .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            margin-right: 8px;
+            margin-right: 10px;
+        }
+        .connected .status-indicator { background: #28a745; animation: pulse 2s infinite; }
+        .disconnected .status-indicator { background: #dc3545; }
+        .no-access .status-indicator { background: #ffc107; }
+        
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
         }
         
         .lamp-card {
-            transition: all 0.3s ease;
-            border: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            border-radius: 15px;
-            overflow: hidden;
-            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            transition: transform 0.3s;
         }
-        
+        .lamp-card:hover {
+            transform: translateY(-5px);
+        }
         .lamp-btn {
-            width: 140px;
-            height: 140px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             border: none;
             font-size: 18px;
-            font-weight: 600;
             margin: 20px auto;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
-            cursor: default !important;
-            position: relative;
-            user-select: none;
-            pointer-events: none !important;
+            transition: all 0.3s;
+            cursor: default;
         }
-        
         .lamp-btn.on {
-            background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+            background: linear-gradient(135deg, #28a745, #20c997);
             color: white;
-            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+            box-shadow: 0 0 30px rgba(40, 167, 69, 0.5);
         }
-        
         .lamp-btn.off {
-            background: linear-gradient(135deg, #757575 0%, #424242 100%);
+            background: linear-gradient(135deg, #6c757d, #495057);
             color: white;
         }
-        
+        .lamp-btn.waiting {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+            color: white;
+            animation: pulse 1s infinite;
+        }
         .lamp-btn.disconnected {
-            background: linear-gradient(135deg, #bdbdbd 0%, #757575 100%);
-            color: var(--dark-gray);
-        }
-        
-        .connection-status {
-            font-size: 1rem;
-            font-weight: 700 !important;
+            background: linear-gradient(135deg, #dc3545, #c82333);
             color: white;
-            margin: 0;
-            padding: 0;
         }
-        
-        .connected .connection-status {
-            color: #90ee90;
+        .lamp-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
         }
-        
-        .disconnected .connection-status {
-            color: #ff6b6b;
-        }
-        
-        .no-access .connection-status {
-            color: #ffcc00;
-        }
-        
-        .connecting .connection-status {
-            color: #6c757d;
-        }
-        
-        .internet-status {
-            font-size: 0.9rem;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .internet-status.active {
-            background-color: rgba(40, 167, 69, 0.1);
-            color: var(--green);
-            border: 1px solid rgba(40, 167, 69, 0.3);
-        }
-        
-        .internet-status.inactive {
-            background-color: rgba(220, 53, 69, 0.1);
-            color: var(--red);
-            border: 1px solid rgba(220, 53, 69, 0.3);
-        }
-        
         .control-btn {
-            padding: 8px 20px;
+            padding: 10px 25px;
             border-radius: 25px;
             font-weight: 600;
-            transition: all 0.2s;
-            min-width: 80px;
+            margin: 5px;
+            transition: all 0.3s;
         }
-        
         .control-btn:active {
             transform: scale(0.95);
         }
-        
         .control-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-        
-        .lamp-icon {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+        .serrure-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 30px;
         }
-        
-        footer {
-            margin-top: 50px;
-            padding: 20px 0;
-            border-top: 1px solid #dee2e6;
+        .btn-lock {
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: 100%;
+            max-width: 300px;
         }
-        
+        .btn-lock.open {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+        }
+        .btn-lock.closed {
+            background: linear-gradient(135deg, #fd7e14, #dc3545);
+            color: white;
+        }
+        .btn-lock:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .btn-lock:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-logout {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+        }
         .notification {
             position: fixed;
             top: 20px;
@@ -175,761 +153,424 @@
             padding: 15px 25px;
             border-radius: 10px;
             color: white;
-            font-weight: 600;
             z-index: 1000;
             transform: translateX(150%);
-            transition: transform 0.3s ease;
-            max-width: 350px;
+            transition: transform 0.3s;
         }
-        
         .notification.show {
             transform: translateX(0);
         }
-        
-        .notification.success {
-            background-color: var(--green);
-        }
-        
-        .notification.error {
-            background-color: var(--red);
-        }
-        
-        .notification.warning {
-            background-color: var(--orange);
-        }
-        
-        .notification.info {
-            background-color: var(--primary);
-        }
-        
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            display: none;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        
-        .connection-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            color: white;
-            text-align: center;
-            padding: 20px;
-            display: none;
-        }
-        
-        .connection-overlay-content {
-            max-width: 500px;
-        }
-        
-        .connection-overlay i {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            color: #ff6b6b;
-        }
-        
-        .btn-logout {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            transition: all 0.3s;
-        }
-        
-        .btn-logout:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-        }
-        
-        .user-display {
+        .notification.success { background: #28a745; }
+        .notification.error { background: #dc3545; }
+        .notification.info { background: #17a2b8; }
+        .notification.warning { background: #ffc107; color: #000; }
+        .refresh-overlay {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: white;
+            background: rgba(255, 255, 255, 0.9);
             padding: 10px 20px;
-            border-radius: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
             font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
             z-index: 100;
         }
-        
-        .user-display i {
-            color: var(--primary);
-        }
-        
-        .last-update {
-            font-size: 0.85rem;
-            color: var(--gray);
-            margin-left: 15px;
-            padding-left: 15px;
-            border-left: 1px solid #dee2e6;
-        }
-        
-        .connection-info {
-            font-size: 0.8rem;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        
-        .connecting-animation {
-            animation: pulse 1.5s infinite;
+        .pending-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ffc107;
+            margin-left: 5px;
+            animation: pulse 1s infinite;
         }
     </style>
 </head>
 <body>
-    <!-- Overlay quand pas de connexion -->
-    <div class="connection-overlay" id="connectionOverlay">
-        <div class="connection-overlay-content">
-            <i class="fas fa-wifi-slash"></i>
-            <h2 class="mb-3">Connexion Internet Requise</h2>
-            <p class="mb-4">Veuillez vérifier votre connexion internet pour accéder au système de contrôle.</p>
-            <button class="btn btn-light btn-lg" onclick="window.location.reload()">
-                <i class="fas fa-sync-alt me-2"></i>Réessayer
-            </button>
-        </div>
-    </div>
-    
-    <!-- Overlay de chargement -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <h4>Connexion au système...</h4>
-        <p class="mt-2" id="loadingMessage">Veuillez patienter</p>
-    </div>
-    
-    <!-- Notification -->
     <div class="notification" id="notification"></div>
-    
-    <!-- Affichage utilisateur -->
-    <div class="user-display">
-        <i class="fas fa-user"></i>
-        <span>Utilisateur: <strong id="currentUser">--</strong></span>
-        <span class="last-update">
-            <i class="fas fa-clock me-1"></i>
-            <span id="lastUpdate">--:--:--</span>
-        </span>
-    </div>
-    
-    <!-- Navigation -->
-    <nav class="navbar navbar-dark">
+
+    <nav class="navbar">
         <div class="container">
-            <span class="navbar-brand mb-0 h1 d-flex align-items-center">
-                <i class="fas fa-home me-2"></i>
-                Contrôle Maison Connectée
+            <span class="navbar-brand">
+                <i class="fas fa-home me-2"></i>Contrôle Maison
             </span>
             <div class="d-flex align-items-center gap-3">
-                <div class="connection-status-box connecting" id="espStatus">
-                    <span class="status-indicator" style="background-color: #6c757d;"></span>
-                    <div>
-                        <span class="connection-status">Connexion en cours...</span>
-                        <div class="connection-info" id="espInfo">Attente du premier signal ESP</div>
-                    </div>
+                <div class="connection-status-box" id="espStatus">
+                    <span class="status-indicator"></span>
+                    <span id="statusText">Connexion en cours...</span>
                 </div>
-                <div class="internet-status active" id="internetStatus">
-                    <i class="fas fa-wifi"></i>
-                    <span>Connexion active</span>
-                </div>
-                <button id="logoutBtn" class="btn btn-logout btn-sm">
-                    <i class="fas fa-sign-out-alt me-1"></i> Déconnexion
+                <button id="logoutBtn" class="btn btn-logout">
+                    <i class="fas fa-sign-out-alt me-1"></i>Déconnexion
                 </button>
             </div>
         </div>
     </nav>
 
-    <div class="container" id="mainContent">
-        <!-- En-tête -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2 class="mb-0">
-                        <i class="fas fa-lightbulb text-warning me-2"></i>
-                        Contrôle des Lampes
-                    </h2>
-                </div>
-                <p class="text-muted">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Les boutons circulaires sont des indicateurs d'état. Utilisez les boutons ON/OFF pour contrôler.
-                </p>
-            </div>
-        </div>
-
+    <div class="container">
         <!-- Lampes -->
-        <div class="row g-4">
-            <!-- Lampe 1 -->
-            <div class="col-md-4">
-                <div class="card lamp-card">
-                    <div class="card-body text-center">
-                        <h5 class="card-title d-flex align-items-center justify-content-center">
-                            <i class="fas fa-couch me-2"></i>
-                            Lampe Salon
-                        </h5>
-                        <p class="card-text text-muted small mb-2">Topic: maison/lampe1</p>
-                        <div class="lamp-btn disconnected" id="lamp1Btn">
-                            <div class="lamp-icon" id="lamp1Icon">
-                                <i class="fas fa-lightbulb"></i>
-                            </div>
-                            <div id="lamp1Text">Attente ESP...</div>
-                        </div>
-                        <div class="mt-4">
-                            <button id="lamp1On" class="btn btn-success control-btn me-2" disabled>
-                                <i class="fas fa-power-on me-1"></i> ON
-                            </button>
-                            <button id="lamp1Off" class="btn btn-danger control-btn" disabled>
-                                <i class="fas fa-power-off me-1"></i> OFF
-                            </button>
-                        </div>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="lamp-card text-center">
+                    <h5>Lampe 1 (Salon)</h5>
+                    <div class="lamp-btn disconnected" id="lamp1Btn">
+                        <div class="lamp-icon"><i class="fas fa-lightbulb"></i></div>
+                        <span id="lamp1Text">Inaccessible</span>
                     </div>
+                    <div>
+                        <button id="lamp1On" class="btn btn-success control-btn" disabled>
+                            <i class="fas fa-power-on me-1"></i>ON
+                        </button>
+                        <button id="lamp1Off" class="btn btn-danger control-btn" disabled>
+                            <i class="fas fa-power-off me-1"></i>OFF
+                        </button>
+                    </div>
+                    <div id="lamp1Pending" class="pending-indicator" style="display: none;"></div>
                 </div>
             </div>
-
-            <!-- Lampe 2 -->
-            <div class="col-md-4">
-                <div class="card lamp-card">
-                    <div class="card-body text-center">
-                        <h5 class="card-title d-flex align-items-center justify-content-center">
-                            <i class="fas fa-utensils me-2"></i>
-                            Lampe Cuisine
-                        </h5>
-                        <p class="card-text text-muted small mb-2">Topic: maison/lampe2</p>
-                        <div class="lamp-btn disconnected" id="lamp2Btn">
-                            <div class="lamp-icon" id="lamp2Icon">
-                                <i class="fas fa-lightbulb"></i>
-                            </div>
-                            <div id="lamp2Text">Attente ESP...</div>
-                        </div>
-                        <div class="mt-4">
-                            <button id="lamp2On" class="btn btn-success control-btn me-2" disabled>
-                                <i class="fas fa-power-on me-1"></i> ON
-                            </button>
-                            <button id="lamp2Off" class="btn btn-danger control-btn" disabled>
-                                <i class="fas fa-power-off me-1"></i> OFF
-                            </button>
-                        </div>
+            
+            <div class="col-md-3">
+                <div class="lamp-card text-center">
+                    <h5>Lampe 2 (Cuisine)</h5>
+                    <div class="lamp-btn disconnected" id="lamp2Btn">
+                        <div class="lamp-icon"><i class="fas fa-lightbulb"></i></div>
+                        <span id="lamp2Text">Inaccessible</span>
                     </div>
+                    <div>
+                        <button id="lamp2On" class="btn btn-success control-btn" disabled>
+                            <i class="fas fa-power-on me-1"></i>ON
+                        </button>
+                        <button id="lamp2Off" class="btn btn-danger control-btn" disabled>
+                            <i class="fas fa-power-off me-1"></i>OFF
+                        </button>
+                    </div>
+                    <div id="lamp2Pending" class="pending-indicator" style="display: none;"></div>
                 </div>
             </div>
-
-            <!-- Lampe 3 -->
-            <div class="col-md-4">
-                <div class="card lamp-card">
-                    <div class="card-body text-center">
-                        <h5 class="card-title d-flex align-items-center justify-content-center">
-                            <i class="fas fa-bed me-2"></i>
-                            Lampe Chambre
-                        </h5>
-                        <p class="card-text text-muted small mb-2">Topic: maison/lampe3</p>
-                        <div class="lamp-btn disconnected" id="lamp3Btn">
-                            <div class="lamp-icon" id="lamp3Icon">
-                                <i class="fas fa-lightbulb"></i>
-                            </div>
-                            <div id="lamp3Text">Attente ESP...</div>
-                        </div>
-                        <div class="mt-4">
-                            <button id="lamp3On" class="btn btn-success control-btn me-2" disabled>
-                                <i class="fas fa-power-on me-1"></i> ON
-                            </button>
-                            <button id="lamp3Off" class="btn btn-danger control-btn" disabled>
-                                <i class="fas fa-power-off me-1"></i> OFF
-                            </button>
-                        </div>
+            
+            <div class="col-md-3">
+                <div class="lamp-card text-center">
+                    <h5>Lampe 3 (Chambre)</h5>
+                    <div class="lamp-btn disconnected" id="lamp3Btn">
+                        <div class="lamp-icon"><i class="fas fa-lightbulb"></i></div>
+                        <span id="lamp3Text">Inaccessible</span>
                     </div>
+                    <div>
+                        <button id="lamp3On" class="btn btn-success control-btn" disabled>
+                            <i class="fas fa-power-on me-1"></i>ON
+                        </button>
+                        <button id="lamp3Off" class="btn btn-danger control-btn" disabled>
+                            <i class="fas fa-power-off me-1"></i>OFF
+                        </button>
+                    </div>
+                    <div id="lamp3Pending" class="pending-indicator" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="lamp-card text-center">
+                    <h5>Lampe 4 (Extérieur)</h5>
+                    <div class="lamp-btn disconnected" id="lamp4Btn">
+                        <div class="lamp-icon"><i class="fas fa-lightbulb"></i></div>
+                        <span id="lamp4Text">Inaccessible</span>
+                    </div>
+                    <div>
+                        <button id="lamp4On" class="btn btn-success control-btn" disabled>
+                            <i class="fas fa-power-on me-1"></i>ON
+                        </button>
+                        <button id="lamp4Off" class="btn btn-danger control-btn" disabled>
+                            <i class="fas fa-power-off me-1"></i>OFF
+                        </button>
+                    </div>
+                    <div id="lamp4Pending" class="pending-indicator" style="display: none;"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Footer -->
-        <footer class="text-center">
-            <p class="text-muted small">
-                <i class="fas fa-microchip me-1"></i>
-                Système de contrôle maison - ESP8266 & MQTT
-            </p>
-        </footer>
+        <!-- Serrure -->
+        <div class="row">
+            <div class="col-12">
+                <div class="serrure-card text-center">
+                    <h4><i class="fas fa-lock me-2"></i>Serrure électrique</h4>
+                    <button id="lockBtn" class="btn-lock closed" disabled>
+                        <i class="fas fa-lock me-2"></i>Serrure fermée
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <div class="refresh-overlay">
+        <i class="fas fa-sync-alt me-2"></i>Mise à jour toutes les 2 secondes
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.0.0/mqtt.min.js"></script>
     <script>
-        // Configuration MQTT
+        // Configuration
         const CONFIG = {
             mqtt: {
                 broker: 'wss://broker.hivemq.com:8884/mqtt',
-                clientId: 'web_' + Math.random().toString(16).substr(2, 8),
-                keepalive: 30,
-                clean: true
+                clientId: 'web_' + Math.random().toString(16).substr(2, 8)
             },
             topics: {
                 connection: 'maison/connexion/etat',
-                lamp1: { state: 'maison/lampe1/etat', command: 'maison/lampe1/cmd' },
-                lamp2: { state: 'maison/lampe2/etat', command: 'maison/lampe2/cmd' },
-                lamp3: { state: 'maison/lampe3/etat', command: 'maison/lampe3/cmd' }
+                lamp1: { state: 'maison/lampe1/etat', cmd: 'maison/lampe1/cmd' },
+                lamp2: { state: 'maison/lampe2/etat', cmd: 'maison/lampe2/cmd' },
+                lamp3: { state: 'maison/lampe3/etat', cmd: 'maison/lampe3/cmd' },
+                lamp4: { state: 'maison/lampe4/etat', cmd: 'maison/lampe4/cmd' },
+                lock: { state: 'maison/serrure/etat', cmd: 'maison/serrure/cmd' }
             },
-            reconnectDelay: 3000,
-            maxReconnectAttempts: 10,
             espTimeout: 10000,
-            initialWaitTime: 3000,
-            commandDelay: 300
+            commandTimeout: 5000
         };
 
-        // Variables d'état
         let mqttClient = null;
-        let espState = 'connecting';
-        let isOnline = navigator.onLine;
-        let lampStates = { 1: 'disconnected', 2: 'disconnected', 3: 'disconnected' };
-        let reconnectAttempts = 0;
-        let lastCommandTime = 0;
-        let lastEspMessageTime = 0;
-        let connectionStartTime = 0;
-        let connectionTimeout = null;
+        let espState = 'disconnected';
+        let lastEspMessage = 0;
+        
+        // États réels (venant de l'ESP/PIC)
+        let lampStates = {1: false, 2: false, 3: false, 4: false};
+        let lockState = false;
+        
+        // Commandes en attente de confirmation (uniquement pour les lampes)
+        let pendingLampCommands = {
+            1: null,
+            2: null,
+            3: null,
+            4: null
+        };
 
         // Vérifier l'authentification
         function checkAuth() {
             const isLoggedIn = sessionStorage.getItem('isLoggedIn');
             const loginTime = sessionStorage.getItem('loginTime');
-            const username = sessionStorage.getItem('username');
-            const isAdmin = sessionStorage.getItem('isAdmin');
             
-            // Vérifier si c'est un admin (doit aller sur admin.html)
-            if (isAdmin === 'true') {
-                sessionStorage.removeItem('isAdmin');
+            if (!isLoggedIn || !loginTime) {
                 window.location.href = 'index.html';
-                return false;
-            }
-            
-            if (!isLoggedIn || !loginTime || !username) {
-                redirectToLogin();
                 return false;
             }
             
             const sessionDuration = 2 * 60 * 60 * 1000;
             if (Date.now() - parseInt(loginTime) > sessionDuration) {
                 sessionStorage.clear();
-                redirectToLogin();
+                window.location.href = 'index.html';
                 return false;
             }
-            
             return true;
-        }
-
-        function redirectToLogin() {
-            window.location.href = 'index.html';
-        }
-
-        // Fonctions d'affichage
-        function showConnectionOverlay(show = true) {
-            document.getElementById('connectionOverlay').style.display = show ? 'flex' : 'none';
-            document.getElementById('mainContent').style.display = show ? 'none' : 'block';
         }
 
         function showNotification(message, type = 'info') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
             notification.className = `notification ${type} show`;
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
+            setTimeout(() => notification.classList.remove('show'), 3000);
         }
 
-        function showLoading(show, message = 'Veuillez patienter') {
-            const overlay = document.getElementById('loadingOverlay');
-            const messageEl = document.getElementById('loadingMessage');
-            messageEl.textContent = message;
-            overlay.style.display = show ? 'flex' : 'none';
-        }
+        function updateEspStatus(status, message) {
+            espState = status;
+            const statusDiv = document.getElementById('espStatus');
+            statusDiv.className = 'connection-status-box ' + status;
+            document.getElementById('statusText').textContent = message;
 
-        function updateInternetStatus() {
-            const statusDiv = document.getElementById('internetStatus');
-            const icon = statusDiv.querySelector('i');
-            const text = statusDiv.querySelector('span');
-            
-            if (isOnline) {
-                statusDiv.className = 'internet-status active';
-                icon.className = 'fas fa-wifi';
-                text.textContent = 'Connexion active';
-            } else {
-                statusDiv.className = 'internet-status inactive';
-                icon.className = 'fas fa-wifi-slash';
-                text.textContent = 'Connexion inactive';
+            // Activer/désactiver les contrôles
+            const enabled = status === 'connected';
+            document.querySelectorAll('.control-btn, #lockBtn').forEach(btn => {
+                btn.disabled = !enabled;
+            });
+
+            if (status !== 'connected') {
+                // Mettre tous les boutons en état inaccessible
+                for (let i = 1; i <= 4; i++) {
+                    const btn = document.getElementById(`lamp${i}Btn`);
+                    const text = document.getElementById(`lamp${i}Text`);
+                    btn.className = 'lamp-btn disconnected';
+                    text.textContent = 'Inaccessible';
+                }
+                
+                const lockBtn = document.getElementById('lockBtn');
+                lockBtn.className = 'btn-lock closed';
+                lockBtn.innerHTML = '<i class="fas fa-lock me-2"></i>Serrure inaccessible';
             }
         }
 
-        function updateLastUpdateTime() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('fr-FR', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
+        function updateLampState(lamp, state) {
+            // Si l'état reçu correspond à une commande en attente
+            if (pendingLampCommands[lamp] !== null) {
+                if (pendingLampCommands[lamp] === state) {
+                    // Commande confirmée
+                    pendingLampCommands[lamp] = null;
+                    document.getElementById(`lamp${lamp}Pending`).style.display = 'none';
+                    showNotification(`Lampe ${lamp} ${state ? 'allumée' : 'éteinte'}`, 'success');
+                }
+            }
+            
+            lampStates[lamp] = state;
+            const btn = document.getElementById(`lamp${lamp}Btn`);
+            const text = document.getElementById(`lamp${lamp}Text`);
+            
+            btn.className = `lamp-btn ${state ? 'on' : 'off'}`;
+            text.textContent = state ? 'ALLUMÉE' : 'ÉTEINTE';
+        }
+
+        function updateLockState(state) {
+            lockState = state;
+            const lockBtn = document.getElementById('lockBtn');
+            
+            if (state) {
+                lockBtn.className = 'btn-lock open';
+                lockBtn.innerHTML = '<i class="fas fa-lock-open me-2"></i>Serrure ouverte';
+            } else {
+                lockBtn.className = 'btn-lock closed';
+                lockBtn.innerHTML = '<i class="fas fa-lock me-2"></i>Serrure fermée';
+            }
+        }
+
+        function sendLampCommand(lamp, command, expectedState) {
+            if (espState !== 'connected') {
+                showNotification('ESP non disponible', 'error');
+                return;
+            }
+            
+            if (pendingLampCommands[lamp] !== null) {
+                showNotification('Une commande est déjà en cours pour cette lampe', 'warning');
+                return;
+            }
+            
+            if (mqttClient && mqttClient.connected) {
+                // Marquer la commande comme en attente
+                pendingLampCommands[lamp] = expectedState;
+                document.getElementById(`lamp${lamp}Pending`).style.display = 'inline-block';
+                
+                // Timeout pour la confirmation
+                setTimeout(() => {
+                    if (pendingLampCommands[lamp] !== null) {
+                        pendingLampCommands[lamp] = null;
+                        document.getElementById(`lamp${lamp}Pending`).style.display = 'none';
+                        showNotification(`Pas de confirmation du PIC pour lampe ${lamp}`, 'warning');
+                    }
+                }, CONFIG.commandTimeout);
+                
+                // Envoyer la commande
+                mqttClient.publish(CONFIG.topics[`lamp${lamp}`].cmd, command);
+                console.log(`Commande lampe ${lamp} envoyée: ${command}`);
+            }
+        }
+
+        function sendLockCommand() {
+            if (espState !== 'connected') {
+                showNotification('ESP non disponible', 'error');
+                return;
+            }
+            
+            if (mqttClient && mqttClient.connected) {
+                const newState = !lockState;
+                const command = newState ? 'ON' : 'OFF';
+                
+                // Envoyer la commande (pas d'attente de confirmation)
+                mqttClient.publish(CONFIG.topics.lock.cmd, command);
+                console.log(`Commande serrure envoyée: ${command}`);
+                
+                // Mettre à jour l'état immédiatement (la serrure est contrôlée par l'ESP)
+                updateLockState(newState);
+                showNotification(`Serrure ${newState ? 'ouverte' : 'fermée'}`, 'success');
+            }
+        }
+
+        function connectMQTT() {
+            mqttClient = mqtt.connect(CONFIG.mqtt.broker, {
+                clientId: CONFIG.mqtt.clientId,
+                keepalive: 30,
+                clean: true
             });
-            document.getElementById('lastUpdate').textContent = timeString;
+
+            mqttClient.on('connect', () => {
+                console.log('Connecté au broker MQTT');
+                
+                // S'abonner à tous les topics d'état
+                mqttClient.subscribe(CONFIG.topics.connection);
+                mqttClient.subscribe(CONFIG.topics.lamp1.state);
+                mqttClient.subscribe(CONFIG.topics.lamp2.state);
+                mqttClient.subscribe(CONFIG.topics.lamp3.state);
+                mqttClient.subscribe(CONFIG.topics.lamp4.state);
+                mqttClient.subscribe(CONFIG.topics.lock.state);
+                
+                updateEspStatus('connecting', 'Attente du PIC...');
+            });
+
+            mqttClient.on('message', (topic, message) => {
+                const msg = message.toString();
+                lastEspMessage = Date.now();
+                
+                if (topic === CONFIG.topics.connection) {
+                    if (msg === 'connecte') {
+                        updateEspStatus('connected', 'Maison connectée');
+                    } else {
+                        updateEspStatus('no-access', 'Maison inaccessible');
+                    }
+                } else if (topic === CONFIG.topics.lamp1.state) {
+                    updateLampState(1, msg === 'ON');
+                } else if (topic === CONFIG.topics.lamp2.state) {
+                    updateLampState(2, msg === 'ON');
+                } else if (topic === CONFIG.topics.lamp3.state) {
+                    updateLampState(3, msg === 'ON');
+                } else if (topic === CONFIG.topics.lamp4.state) {
+                    updateLampState(4, msg === 'ON');
+                } else if (topic === CONFIG.topics.lock.state) {
+                    updateLockState(msg === 'ON');
+                }
+            });
+
+            mqttClient.on('error', (err) => {
+                console.error('Erreur MQTT:', err);
+                updateEspStatus('disconnected', 'Erreur de connexion');
+            });
+
+            mqttClient.on('close', () => {
+                updateEspStatus('disconnected', 'Déconnecté');
+            });
         }
 
         // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
-            // Vérifier l'authentification
+        document.addEventListener('DOMContentLoaded', () => {
             if (!checkAuth()) return;
-            
-            // Afficher le nom d'utilisateur
-            const username = sessionStorage.getItem('username');
-            if (username) {
-                document.getElementById('currentUser').textContent = username;
-            }
-            
-            // Masquer l'overlay de connexion
-            showConnectionOverlay(false);
-            
-            // Configurer l'état initial
-            updateInternetStatus();
-            updateLastUpdateTime();
-            
-            // Configurer les boutons
-            setupControlButtons();
-            
-            // Configurer le bouton de déconnexion
-            document.getElementById('logoutBtn').addEventListener('click', logout);
-            
-            // Démarrer avec état "connecting"
-            updateEspStatus('connecting', 'Attente du premier signal ESP');
-            
-            // Démarrer la connexion MQTT
-            connectToMqtt();
-            
-            // Écouter les changements de connexion
-            window.addEventListener('online', handleOnline);
-            window.addEventListener('offline', handleOffline);
-            
-            // Vérifier périodiquement la connexion ESP
-            setInterval(checkEspConnection, 1000);
-        });
 
-        function handleOnline() {
-            isOnline = true;
-            updateInternetStatus();
-            
-            if (!mqttClient || !mqttClient.connected) {
-                connectToMqtt();
-            }
-            
-            showNotification('Connexion internet rétablie', 'success');
-        }
-
-        function handleOffline() {
-            isOnline = false;
-            updateInternetStatus();
-            
-            if (mqttClient && mqttClient.connected) {
-                mqttClient.end();
-            }
-            
-            updateEspStatus('no-access', 'Connexion internet perdue');
-            showNotification('Connexion internet perdue', 'warning');
-        }
-
-        function connectToMqtt() {
-            if (!isOnline || reconnectAttempts >= CONFIG.maxReconnectAttempts) {
-                showNotification('Impossible de se connecter au broker', 'error');
-                return;
-            }
-            
-            showLoading(true, 'Connexion au broker MQTT...');
-            reconnectAttempts++;
-            
-            try {
-                mqttClient = mqtt.connect(CONFIG.mqtt.broker, {
-                    clientId: CONFIG.mqtt.clientId,
-                    keepalive: CONFIG.mqtt.keepalive,
-                    clean: CONFIG.mqtt.clean,
-                    reconnectPeriod: 0
+            // Configurer les boutons des lampes
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`lamp${i}On`).addEventListener('click', () => {
+                    sendLampCommand(i, 'ON', true);
                 });
                 
-                mqttClient.on('connect', () => {
-                    console.log('Connecté au broker MQTT');
-                    reconnectAttempts = 0;
-                    showLoading(false);
-                    connectionStartTime = Date.now();
-                    
-                    // S'abonner aux topics
-                    mqttClient.subscribe(CONFIG.topics.connection);
-                    mqttClient.subscribe(CONFIG.topics.lamp1.state);
-                    mqttClient.subscribe(CONFIG.topics.lamp2.state);
-                    mqttClient.subscribe(CONFIG.topics.lamp3.state);
-                    
-                    showNotification('Connecté au broker MQTT', 'success');
-                    
-                    // Démarrer le timeout pour détecter absence ESP
-                    startEspTimeout();
-                });
-                
-                mqttClient.on('message', (topic, message) => {
-                    const msg = message.toString();
-                    console.log(`MQTT: ${topic} -> ${msg}`);
-                    
-                    // Mettre à jour le temps du dernier message
-                    lastEspMessageTime = Date.now();
-                    updateLastUpdateTime();
-                    
-                    // Annuler le timeout
-                    if (connectionTimeout) {
-                        clearTimeout(connectionTimeout);
-                        connectionTimeout = null;
-                    }
-                    
-                    if (topic === CONFIG.topics.connection) {
-                        if (msg === 'connecte') {
-                            updateEspStatus('connected', 'ESP en ligne');
-                        } else {
-                            updateEspStatus('disconnected', 'ESP déconnecté du broker');
-                        }
-                    } else if (topic === CONFIG.topics.lamp1.state) {
-                        updateLampState(1, msg);
-                    } else if (topic === CONFIG.topics.lamp2.state) {
-                        updateLampState(2, msg);
-                    } else if (topic === CONFIG.topics.lamp3.state) {
-                        updateLampState(3, msg);
-                    }
-                });
-                
-                mqttClient.on('error', (error) => {
-                    console.error('Erreur MQTT:', error);
-                    showLoading(false);
-                    showNotification('Erreur de connexion au broker', 'error');
-                    scheduleReconnect();
-                });
-                
-                mqttClient.on('close', () => {
-                    console.log('Déconnecté du broker');
-                    updateEspStatus('no-access', 'Déconnecté du broker');
-                    showLoading(false);
-                    scheduleReconnect();
-                });
-                
-            } catch (error) {
-                console.error('Erreur de connexion:', error);
-                showLoading(false);
-                scheduleReconnect();
-            }
-        }
-
-        function startEspTimeout() {
-            if (connectionTimeout) {
-                clearTimeout(connectionTimeout);
-            }
-            
-            connectionTimeout = setTimeout(() => {
-                if (espState === 'connecting' && !lastEspMessageTime) {
-                    updateEspStatus('no-access', 'ESP non détecté - Vérifiez l\'alimentation');
-                    showNotification('ESP non détecté. Vérifiez que l\'ESP est alimenté et connecté au WiFi.', 'warning');
-                }
-            }, CONFIG.initialWaitTime);
-        }
-
-        function scheduleReconnect() {
-            if (isOnline && reconnectAttempts < CONFIG.maxReconnectAttempts) {
-                console.log(`Nouvelle tentative dans ${CONFIG.reconnectDelay}ms...`);
-                setTimeout(() => {
-                    connectToMqtt();
-                }, CONFIG.reconnectDelay);
-            } else if (reconnectAttempts >= CONFIG.maxReconnectAttempts) {
-                showNotification('Trop de tentatives de connexion', 'error');
-            }
-        }
-
-        function checkEspConnection() {
-            if (espState === 'connected' && lastEspMessageTime > 0) {
-                const timeSinceLastMessage = Date.now() - lastEspMessageTime;
-                
-                if (timeSinceLastMessage > CONFIG.espTimeout) {
-                    updateEspStatus('no-access', 'ESP inaccessible - Aucun signal depuis ' + Math.round(timeSinceLastMessage/1000) + 's');
-                    showNotification('ESP inaccessible - Vérifiez l\'alimentation', 'warning');
-                }
-            }
-        }
-
-        function updateEspStatus(state, info = '') {
-            espState = state;
-            const statusBox = document.getElementById('espStatus');
-            const indicator = statusBox.querySelector('.status-indicator');
-            const statusText = statusBox.querySelector('.connection-status');
-            const infoText = document.getElementById('espInfo');
-            
-            // Mettre à jour les classes CSS
-            statusBox.className = 'connection-status-box';
-            statusBox.classList.add(state);
-            
-            if (state === 'connecting') {
-                indicator.style.backgroundColor = '#6c757d';
-                indicator.style.animation = 'pulse 1.5s infinite';
-                statusText.textContent = 'Connexion en cours...';
-                statusText.style.color = '#ffffff';
-                infoText.textContent = info || 'Attente du premier signal ESP';
-                
-                // Désactiver les boutons
-                [1, 2, 3].forEach(lamp => {
-                    document.getElementById(`lamp${lamp}On`).disabled = true;
-                    document.getElementById(`lamp${lamp}Off`).disabled = true;
-                });
-                
-            } else if (state === 'connected') {
-                indicator.style.backgroundColor = '#28a745';
-                indicator.style.animation = 'pulse 2s infinite';
-                statusText.textContent = 'ESP Connecté';
-                statusText.style.color = '#90ee90';
-                infoText.textContent = info || 'Dernière connexion: ' + new Date().toLocaleTimeString();
-                
-                // Activer les boutons
-                [1, 2, 3].forEach(lamp => {
-                    document.getElementById(`lamp${lamp}On`).disabled = false;
-                    document.getElementById(`lamp${lamp}Off`).disabled = false;
-                });
-                
-            } else if (state === 'disconnected') {
-                indicator.style.backgroundColor = '#dc3545';
-                indicator.style.animation = 'none';
-                statusText.textContent = 'ESP Déconnecté';
-                statusText.style.color = '#ff6b6b';
-                infoText.textContent = info || 'ESP en ligne mais déconnecté du broker';
-                
-                // Désactiver les boutons
-                [1, 2, 3].forEach(lamp => {
-                    document.getElementById(`lamp${lamp}On`).disabled = true;
-                    document.getElementById(`lamp${lamp}Off`).disabled = true;
-                });
-                
-            } else { // no-access
-                indicator.style.backgroundColor = '#ffcc00';
-                indicator.style.animation = 'blink 1s infinite';
-                statusText.textContent = 'ESP Inaccessible';
-                statusText.style.color = '#ffcc00';
-                infoText.textContent = info || 'Vérifiez l\'alimentation ESP';
-                
-                // Désactiver les boutons
-                [1, 2, 3].forEach(lamp => {
-                    document.getElementById(`lamp${lamp}On`).disabled = true;
-                    document.getElementById(`lamp${lamp}Off`).disabled = true;
+                document.getElementById(`lamp${i}Off`).addEventListener('click', () => {
+                    sendLampCommand(i, 'OFF', false);
                 });
             }
-        }
 
-        function updateLampState(lampNumber, state) {
-            lampStates[lampNumber] = state.toLowerCase();
-            const btn = document.getElementById(`lamp${lampNumber}Btn`);
-            const icon = btn.querySelector('.lamp-icon i');
-            const text = document.getElementById(`lamp${lampNumber}Text`);
-            
-            btn.className = `lamp-btn ${state.toLowerCase()}`;
-            
-            if (state === 'ON') {
-                icon.className = 'fas fa-lightbulb';
-                text.textContent = 'ALLUMÉE';
-            } else if (state === 'OFF') {
-                icon.className = 'fas fa-lightbulb';
-                text.textContent = 'ÉTEINTE';
-            } else {
-                icon.className = 'fas fa-lightbulb';
-                text.textContent = espState === 'connecting' ? 'Attente ESP...' : 'Inaccessible';
-            }
-        }
+            // Bouton serrure (toggle)
+            document.getElementById('lockBtn').addEventListener('click', sendLockCommand);
 
-        function sendLampCommand(lampNumber, command) {
-            if (espState !== 'connected') {
-                showNotification('ESP non disponible', 'warning');
-                return;
-            }
-            
-            const now = Date.now();
-            if (now - lastCommandTime < CONFIG.commandDelay) {
-                showNotification('Veuillez attendre', 'info');
-                return;
-            }
-            
-            if (!mqttClient || !mqttClient.connected) {
-                showNotification('Non connecté au système', 'error');
-                return;
-            }
-            
-            lastCommandTime = now;
-            
-            const topic = CONFIG.topics[`lamp${lampNumber}`].command;
-            mqttClient.publish(topic, command, { qos: 1, retain: true });
-            
-            console.log(`Commande: ${topic} -> ${command}`);
-            showNotification(`Lampe ${lampNumber} ${command === 'ON' ? 'allumée' : 'éteinte'}`, 'success');
-        }
-
-        function setupControlButtons() {
-            [1, 2, 3].forEach(lamp => {
-                const onBtn = document.getElementById(`lamp${lamp}On`);
-                const offBtn = document.getElementById(`lamp${lamp}Off`);
-                
-                onBtn.addEventListener('click', () => sendLampCommand(lamp, 'ON'));
-                offBtn.addEventListener('click', () => sendLampCommand(lamp, 'OFF'));
-            });
-        }
-
-        function logout() {
-            if (mqttClient && mqttClient.connected) {
-                mqttClient.end();
-            }
-            
-            sessionStorage.clear();
-            showNotification('Déconnexion réussie', 'success');
-            
-            setTimeout(() => {
+            // Déconnexion
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                sessionStorage.clear();
+                if (mqttClient) mqttClient.end();
                 window.location.href = 'index.html';
-            }, 1000);
-        }
+            });
 
-        // Mettre à jour l'heure
-        setInterval(updateLastUpdateTime, 60000);
-        
-        // Vérifier la connexion
-        setInterval(() => {
-            if (isOnline && (!mqttClient || !mqttClient.connected) && reconnectAttempts < CONFIG.maxReconnectAttempts) {
-                connectToMqtt();
-            }
-        }, 10000);
+            // Connexion MQTT
+            connectMQTT();
+
+            // Rafraîchissement automatique toutes les 2 secondes
+            setInterval(() => {
+                // Vérifier la connexion ESP
+                if (espState === 'connected' && Date.now() - lastEspMessage > CONFIG.espTimeout) {
+                    updateEspStatus('no-access', 'Maison inaccessible');
+                    
+                    // Réinitialiser les commandes en attente
+                    for (let i = 1; i <= 4; i++) {
+                        pendingLampCommands[i] = null;
+                        document.getElementById(`lamp${i}Pending`).style.display = 'none';
+                    }
+                }
+            }, 2000);
+        });
     </script>
 </body>
 </html>
