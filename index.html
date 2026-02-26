@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - Contrôle Maison</title>
+    <title>Connexion - Maison Connectée</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -23,8 +23,6 @@
             box-shadow: 0 15px 35px rgba(0,0,0,0.2);
             width: 100%;
             max-width: 400px;
-            position: relative;
-            overflow: hidden;
         }
         .login-card:before {
             content: '';
@@ -42,21 +40,6 @@
         .logo h2 {
             color: #333;
             font-weight: 700;
-            margin-bottom: 10px;
-        }
-        .logo p {
-            color: #666;
-            font-size: 0.95rem;
-        }
-        .form-control {
-            padding: 12px 15px;
-            border-radius: 8px;
-            border: 2px solid #e0e0e0;
-            transition: all 0.3s ease;
-        }
-        .form-control:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
         .btn-login {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -64,15 +47,8 @@
             padding: 12px;
             font-weight: 600;
             border-radius: 8px;
-            transition: all 0.3s ease;
             color: white;
-        }
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        .btn-login:active {
-            transform: translateY(0);
+            width: 100%;
         }
         .btn-admin {
             background: linear-gradient(135deg, #fd7e14 0%, #e8590c 100%);
@@ -80,21 +56,9 @@
             padding: 12px;
             font-weight: 600;
             border-radius: 8px;
-            transition: all 0.3s ease;
             color: white;
             width: 100%;
             margin-top: 10px;
-        }
-        .btn-admin:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(253, 126, 20, 0.4);
-        }
-        .admin-note {
-            font-size: 0.85rem;
-            color: #666;
-            text-align: center;
-            margin-top: 15px;
-            font-style: italic;
         }
         .loading-overlay {
             position: fixed;
@@ -123,120 +87,62 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
-        }
-        .error-message {
-            animation: shake 0.5s;
-        }
     </style>
 </head>
 <body>
     <div class="login-card">
         <div class="logo">
             <h2><i class="fas fa-home me-2"></i>Maison Connectée</h2>
-            <p>Connectez-vous pour contrôler vos lampes</p>
+            <p>Connectez-vous pour accéder au contrôle</p>
         </div>
         <form id="loginForm">
             <div class="mb-3">
                 <label for="username" class="form-label">Nom d'utilisateur</label>
-                <input type="text" class="form-control" id="username" required autocomplete="username">
+                <input type="text" class="form-control" id="username" required>
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Mot de passe</label>
-                <input type="password" class="form-control" id="password" required autocomplete="current-password">
+                <input type="password" class="form-control" id="password" required>
             </div>
-            <div class="d-grid">
-                <button type="submit" class="btn btn-login">
-                    <i class="fas fa-sign-in-alt me-2"></i>Se connecter
-                </button>
-            </div>
+            <button type="submit" class="btn btn-login">
+                <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+            </button>
         </form>
-        
-        <!-- Bouton Administrer -->
         <button id="adminBtn" class="btn-admin">
             <i class="fas fa-cog me-2"></i>Administrer
         </button>
-        
-        <p class="admin-note">Accès réservé à l'administrateur</p>
-        
+        <p class="text-center text-muted small mt-3">Accès administrateur uniquement</p>
         <div id="errorMessage" class="alert alert-danger mt-3 d-none"></div>
     </div>
 
-    <!-- Overlay de chargement -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="spinner"></div>
-        <h4 id="loadingTitle">Connexion au système...</h4>
-        <p class="mt-2" id="loadingMessage">Vérification des identifiants</p>
+        <h4 id="loadingTitle">Connexion en cours...</h4>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.0.0/mqtt.min.js"></script>
     <script>
-        // Configuration MQTT
         const MQTT_CONFIG = {
             broker: 'wss://broker.hivemq.com:8884/mqtt',
-            authTimeout: 10000 // 10 secondes
+            authTimeout: 10000
         };
 
-        // Variables
         let mqttClient = null;
-        let authTimeout = null;
 
-        // Fonctions utilitaires
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.classList.remove('d-none');
             errorDiv.textContent = message;
-            errorDiv.classList.remove('error-message');
-            void errorDiv.offsetWidth; // Trigger reflow
-            errorDiv.classList.add('error-message');
         }
 
-        function showLoading(show, title = 'Connexion au système...', message = 'Veuillez patienter') {
-            const overlay = document.getElementById('loadingOverlay');
-            const titleEl = document.getElementById('loadingTitle');
-            const messageEl = document.getElementById('loadingMessage');
-            
-            titleEl.textContent = title;
-            messageEl.textContent = message;
-            overlay.style.display = show ? 'flex' : 'none';
+        function showLoading(show, title = 'Connexion...') {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+            document.getElementById('loadingTitle').textContent = title;
         }
 
-        function redirectToLogin() {
-            sessionStorage.clear();
-            window.location.href = 'index.html';
-        }
-
-        // Vérifier si déjà connecté
-        function checkExistingSession() {
-            const isLoggedIn = sessionStorage.getItem('isLoggedIn');
-            const loginTime = sessionStorage.getItem('loginTime');
-            const username = sessionStorage.getItem('username');
-            const isAdmin = sessionStorage.getItem('isAdmin');
-            
-            if (isLoggedIn === 'true' && loginTime && username) {
-                const sessionDuration = 2 * 60 * 60 * 1000; // 2 heures
-                
-                if (Date.now() - parseInt(loginTime) < sessionDuration) {
-                    // Rediriger selon le type d'utilisateur
-                    if (isAdmin === 'true') {
-                        window.location.href = 'admin.html';
-                    } else {
-                        window.location.href = 'commande.html';
-                    }
-                } else {
-                    sessionStorage.clear();
-                }
-            }
-        }
-
-        // Authentification MQTT
         function authenticateUser(username, password, isAdminAttempt = false) {
-            showLoading(true, 'Vérification des identifiants...', 'Connexion à l\'ESP...');
+            showLoading(true, 'Vérification des identifiants...');
             
-            // Créer un client MQTT temporaire
             const clientId = 'auth_' + Math.random().toString(16).substr(2, 8);
             mqttClient = mqtt.connect(MQTT_CONFIG.broker, {
                 clientId: clientId,
@@ -245,139 +151,90 @@
                 reconnectPeriod: 0
             });
 
-            // Topics
             const topicAuthRequest = 'maison/auth/request';
             const topicAuthResponse = 'maison/auth/response';
 
+            const timeout = setTimeout(() => {
+                showLoading(false);
+                if (mqttClient) mqttClient.end();
+                showError('Timeout - Vérifiez que l\'ESP est allumé');
+            }, MQTT_CONFIG.authTimeout);
+
             mqttClient.on('connect', () => {
-                console.log('Connecté au broker pour authentification');
-                
-                // S'abonner à la réponse
-                mqttClient.subscribe(topicAuthResponse, { qos: 1 });
-                
-                // Envoyer les identifiants
-                const authData = {
+                mqttClient.subscribe(topicAuthResponse);
+                mqttClient.publish(topicAuthRequest, JSON.stringify({
                     username: username,
                     password: password,
                     timestamp: Date.now()
-                };
-                
-                mqttClient.publish(topicAuthRequest, JSON.stringify(authData), { qos: 1 });
-                console.log('Demande d\'authentification envoyée');
-                
-                // Timeout
-                authTimeout = setTimeout(() => {
-                    showLoading(false);
-                    if (mqttClient) mqttClient.end();
-                    showError('Timeout - Vérifiez que l\'ESP est allumé et connecté');
-                }, MQTT_CONFIG.authTimeout);
+                }));
             });
 
             mqttClient.on('message', (topic, message) => {
                 if (topic === topicAuthResponse) {
-                    clearTimeout(authTimeout);
+                    clearTimeout(timeout);
                     
                     try {
                         const response = JSON.parse(message.toString());
-                        console.log('Réponse d\'authentification:', response);
                         
-                        if (response.authenticated === true) {
-                            // Authentification réussie
-                            showLoading(false);
-                            mqttClient.end();
-                            
-                            // Stocker la session
+                        if (response.authenticated) {
                             sessionStorage.setItem('isLoggedIn', 'true');
                             sessionStorage.setItem('loginTime', Date.now().toString());
                             sessionStorage.setItem('username', username);
                             sessionStorage.setItem('isAdmin', response.isAdmin ? 'true' : 'false');
                             
-                            // Gérer la redirection
+                            showLoading(false);
+                            mqttClient.end();
+                            
                             if (isAdminAttempt) {
-                                if (response.isAdmin === true) {
+                                if (response.isAdmin) {
                                     window.location.href = 'admin.html';
                                 } else {
-                                    showError('Cet utilisateur n\'est pas administrateur');
+                                    showError('Accès administrateur refusé');
                                 }
                             } else {
-                                if (response.isAdmin === true) {
-                                    showError('Utilisez le bouton "Administrer" pour l\'accès admin');
-                                } else {
-                                    window.location.href = 'commande.html';
-                                }
+                                window.location.href = 'commande.html';
                             }
-                            
                         } else {
-                            // Authentification échouée
                             showLoading(false);
                             mqttClient.end();
                             showError('Identifiants incorrects');
                         }
-                        
                     } catch (error) {
-                        console.error('Erreur parsing réponse:', error);
                         showLoading(false);
                         mqttClient.end();
-                        showError('Erreur de communication avec le système');
+                        showError('Erreur de communication');
                     }
                 }
             });
 
-            mqttClient.on('error', (error) => {
-                clearTimeout(authTimeout);
-                console.error('Erreur MQTT:', error);
+            mqttClient.on('error', () => {
+                clearTimeout(timeout);
                 showLoading(false);
-                if (mqttClient) mqttClient.end();
+                mqttClient.end();
                 showError('Erreur de connexion au système');
-            });
-
-            mqttClient.on('close', () => {
-                clearTimeout(authTimeout);
-                showLoading(false);
             });
         }
 
-        // Gestion du formulaire
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             
-            if (!username || !password) {
+            if (username && password) {
+                authenticateUser(username, password, false);
+            } else {
                 showError('Veuillez remplir tous les champs');
-                return;
             }
-            
-            authenticateUser(username, password, false);
         });
 
-        // Bouton Administrer
-        document.getElementById('adminBtn').addEventListener('click', function() {
+        document.getElementById('adminBtn').addEventListener('click', () => {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             
-            if (!username || !password) {
+            if (username && password) {
+                authenticateUser(username, password, true);
+            } else {
                 showError('Veuillez entrer vos identifiants');
-                return;
-            }
-            
-            authenticateUser(username, password, true);
-        });
-
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
-            checkExistingSession();
-            document.getElementById('username').focus();
-        });
-
-        // Nettoyage en quittant la page
-        window.addEventListener('beforeunload', function() {
-            if (mqttClient) {
-                mqttClient.end();
-            }
-            if (authTimeout) {
-                clearTimeout(authTimeout);
             }
         });
     </script>
